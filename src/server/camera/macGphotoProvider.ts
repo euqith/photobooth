@@ -106,7 +106,20 @@ export class MacGphotoProvider implements ICameraProvider {
     });
   }
 
-  async stopLiveView(): Promise<void> {
+  private turnOffCameraEvf(): void {
+    try {
+      this.killMacPtpDaemons();
+      execSync(`${GPHOTO_BIN} --set-config /main/actions/viewfinder=0 --set-config /main/settings/output=Off`, {
+        timeout: 5000,
+        env: EXEC_ENV,
+        stdio: 'ignore',
+      });
+    } catch {
+      // ignore if camera is disconnected
+    }
+  }
+
+  async stopLiveView(dropMirror = true): Promise<void> {
     this.isEvfActive = false;
     if (this.evfProcess) {
       const proc = this.evfProcess;
@@ -148,12 +161,17 @@ export class MacGphotoProvider implements ICameraProvider {
       // Small 350ms buffer for USB controller & Canon 6D to settle
       await new Promise((r) => setTimeout(r, 350));
     }
+
+    // Explicitly turn off Canon EVF / drop mirror so sensor cools down during idle/processing
+    if (dropMirror) {
+      this.turnOffCameraEvf();
+    }
   }
 
   async capturePhoto(targetPath: string): Promise<CaptureResult> {
     const start = Date.now();
-    // 1. Ensure Live View process has 100% exited and USB bus is free
-    await this.stopLiveView();
+    // 1. Ensure Live View process has 100% exited and USB bus is free (skip redundant mirror drop before capture)
+    await this.stopLiveView(false);
     this.killMacPtpDaemons();
 
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
