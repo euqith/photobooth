@@ -46,6 +46,7 @@ export const App: React.FC = () => {
     });
 
     s.on('camera:frame', async (frameBuffer: ArrayBuffer) => {
+      window.dispatchEvent(new CustomEvent('camera:frame_received'));
       const canvas = document.getElementById('liveview-canvas') as HTMLCanvasElement | null;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -169,6 +170,25 @@ export const App: React.FC = () => {
           onPrint={printCollage}
           onDone={endSession}
         />
+      )}
+
+      {/* 7. Error Screen (Never blank screen) */}
+      {state === 'ERROR' && (
+        <div className="relative w-screen h-screen bg-gray-950 flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-500 flex items-center justify-center mb-6">
+            <span className="text-4xl">⚠️</span>
+          </div>
+          <h2 className="text-3xl font-display font-extrabold text-white mb-3">Terjadi Kendala Kamera</h2>
+          <p className="text-gray-400 text-sm max-w-md mb-8">
+            Kamera DSLR memerlukan jeda transisi atau port USB sedang sibuk. Silakan tekan tombol di bawah untuk mengulang sesi.
+          </p>
+          <button
+            onClick={endSession}
+            className="px-8 py-4 bg-gradient-to-r from-rose-500 to-pink-600 rounded-2xl text-white font-bold text-lg shadow-xl shadow-pink-500/25 active:scale-95 transition-all"
+          >
+            Mulai Ulang Sesi
+          </button>
+        </div>
       )}
 
       {/* Hidden Admin Dashboard Modal */}

@@ -142,6 +142,8 @@ export class SessionManager {
   public async retakeCurrentPose(): Promise<void> {
     if (!this.currentSession || this.currentSession.state !== 'REVIEW_SHOT') return;
     this.currentSession.retakeCountForCurrentPose++;
+    this.currentSession.state = 'LIVEVIEW_PREP';
+    this.broadcastState();
 
     // Re-enter Live View & Countdown for the same pose
     await this.cameraManager.startLiveView((frameBuffer) => {
@@ -158,6 +160,9 @@ export class SessionManager {
       // More poses remaining
       this.currentSession.currentPose = nextPose;
       this.currentSession.retakeCountForCurrentPose = 0;
+      this.currentSession.state = 'LIVEVIEW_PREP';
+      this.broadcastState();
+
       await this.cameraManager.startLiveView((frameBuffer) => {
         this.io.emit('camera:frame', frameBuffer);
       });

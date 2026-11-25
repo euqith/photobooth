@@ -109,18 +109,50 @@ export class MacGphotoProvider implements ICameraProvider {
   async stopLiveView(): Promise<void> {
     this.isEvfActive = false;
     if (this.evfProcess) {
-      try {
-        this.evfProcess.kill('SIGTERM');
-      } catch {
-        // ignore
-      }
+      const proc = this.evfProcess;
       this.evfProcess = null;
+
+      await new Promise<void>((resolve) => {
+        let finished = false;
+        const fallbackTimer = setTimeout(() => {
+          if (!finished) {
+            finished = true;
+            try {
+              proc.kill('SIGKILL');
+            } catch {
+              // ignore
+            }
+            resolve();
+          }
+        }, 1200);
+
+        proc.once('close', () => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(fallbackTimer);
+            resolve();
+          }
+        });
+
+        try {
+          proc.kill('SIGTERM');
+        } catch {
+          if (!finished) {
+            finished = true;
+            clearTimeout(fallbackTimer);
+            resolve();
+          }
+        }
+      });
+
+      // Small 350ms buffer for USB controller & Canon 6D to settle
+      await new Promise((r) => setTimeout(r, 350));
     }
   }
 
   async capturePhoto(targetPath: string): Promise<CaptureResult> {
     const start = Date.now();
-    // Live View MUST be paused/stopped before shutter release on Canon 6D to prevent USB lock
+    // 1. Ensure Live View process has 100% exited and USB bus is free
     await this.stopLiveView();
     this.killMacPtpDaemons();
 
@@ -129,12 +161,34 @@ export class MacGphotoProvider implements ICameraProvider {
     const dir = path.dirname(targetPath);
     const baseName = path.basename(targetPath);
 
-    // Capture and download
-    execSync(`${GPHOTO_BIN} --capture-image-and-download --filename "${baseName}" --force-overwrite`, {
-      cwd: dir,
-      timeout: 10000,
-      env: EXEC_ENV,
-    });
+    // 2. Capture and download with retry if USB is transiently busy
+    let captured = false;
+    let lastErr: any = null;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        execSync(`${GPHOTO_BIN} --capture-image-and-download --filename "${baseName}" --force-overwrite`, {
+          cwd: dir,
+          timeout: 12000,
+          env: EXEC_ENV,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        captured = true;
+        break;
+      } catch (err: any) {
+        lastErr = err;
+        console.warn(`[Camera] Capture attempt ${attempt} failed: ${err.message}. Retrying...`);
+        this.killMacPtpDaemons();
+        await new Promise((r) => setTimeout(r, 600));
+      }
+    }
+
+    if (!captured) {
+      throw lastErr || new Error('Capture failed after 2 attempts.');
+    }
+
+    // 3. Post-capture settling delay before next Live View can start
+    await new Promise((r) => setTimeout(r, 400));
 
     return {
       filePath: targetPath,

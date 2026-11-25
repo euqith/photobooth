@@ -15,6 +15,14 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
   isFlashing,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [hasReceivedFrame, setHasReceivedFrame] = useState(false);
+
+  // Detect when frame is drawn
+  useEffect(() => {
+    const handleFrame = () => setHasReceivedFrame(true);
+    window.addEventListener('camera:frame_received', handleFrame);
+    return () => window.removeEventListener('camera:frame_received', handleFrame);
+  }, []);
 
   // Play audio beep cue on countdown tick
   useEffect(() => {
@@ -46,6 +54,14 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
         height={853}
         className="w-full h-full object-cover transform scale-x-[-1]"
       />
+
+      {/* Camera Initializing Loader while mirror is flipping */}
+      {!hasReceivedFrame && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-950/80 backdrop-blur-sm pointer-events-none">
+          <div className="w-12 h-12 rounded-full border-4 border-pink-500 border-t-transparent animate-spin mb-4" />
+          <p className="text-gray-300 font-semibold text-sm">Menghubungkan Kamera Canon 6D...</p>
+        </div>
+      )}
 
       {/* Camera Slot Framing Guide Overlay */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
