@@ -1,0 +1,187 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { PhotoboothState, PhotoSession, TemplateMetadata, ColorFilter } from '../shared/types';
+import { AttractScreen } from './components/AttractScreen';
+import { TemplateSelectorScreen } from './components/TemplateSelectorScreen';
+import { LiveViewScreen } from './components/LiveViewScreen';
+import { ShotReviewModal } from './components/ShotReviewModal';
+import { ProcessingScreen } from './components/ProcessingScreen';
+import { ResultShareScreen } from './components/ResultShareScreen';
+import { AdminDashboard } from './components/AdminDashboard';
+
+export const App: React.FC = () => {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [state, setState] = useState<PhotoboothState>('IDLE');
+  const [session, setSession] = useState<PhotoSession | null>(null);
+  const [countdown, setCountdown] = useState<number>(0);
+  const [templates, setTemplates] = useState<TemplateMetadata[]>([]);
+  const [isFlashing, setIsFlashing] = useState<boolean>(false);
+  const [showAdmin, setShowAdmin] = useState<boolean>(false);
+  const [adminTapCount, setAdminTapCount] = useState<number>(0);
+
+  // Initialize Socket.io connection
+  useEffect(() => {
+    // If running in Vite dev server (port 5173), point to backend at 4000
+    const serverUrl = window.location.port === '5173' ? 'http://localhost:4000' : window.location.origin;
+    const s = io(serverUrl);
+    setSocket(s);
+
+    s.on('connect', () => {
+      console.log('Connected to Photobooth Backend Socket');
+    });
+
+    s.on('session:state', (data: { session: PhotoSession | null; state: PhotoboothState; countdown: number }) => {
+      setSession(data.session);
+      setState(data.state);
+      setCountdown(data.countdown || 0);
+    });
+
+    s.on('session:countdown_tick', (data: { count: number }) => {
+      setCountdown(data.count);
+    });
+
+    s.on('session:flash', () => {
+      setIsFlashing(true);
+      setTimeout(() => setIsFlashing(false), 500);
+    });
+
+    s.on('camera:frame', async (frameBuffer: ArrayBuffer) => {
+      const canvas = document.getElementById('liveview-canvas') as HTMLCanvasElement | null;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      try {
+        const blob = new Blob([frameBuffer], { type: 'image/jpeg' });
+        const bitmap = await createImageBitmap(blob);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+      } catch (err) {
+        // frame render error
+      }
+    });
+
+    // Fetch templates catalog
+    fetch(`${serverUrl}/api/templates`)
+      .then((res) => res.json())
+      .then((data: TemplateMetadata[]) => {
+        setTemplates(data);
+      })
+      .catch((err) => console.error('Error fetching templates:', err));
+
+    return () => {
+      s.disconnect();
+    };
+  }, []);
+
+  const handleAdminTap = () => {
+    setAdminTapCount((prev) => {
+      if (prev + 1 >= 5) {
+        setShowAdmin(true);
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
+  const startSession = () => {
+    socket?.emit('session:start');
+  };
+
+  const selectTemplate = (id: string) => {
+    socket?.emit('session:selectTemplate', id);
+  };
+
+  const readyLiveView = () => {
+    socket?.emit('session:readyLiveView');
+  };
+
+  const retakePose = () => {
+    socket?.emit('session:retake');
+  };
+
+  const acceptPose = () => {
+    socket?.emit('session:acceptPose');
+  };
+
+  const applyFilter = (filter: ColorFilter) => {
+    socket?.emit('session:applyFilter', filter);
+  };
+
+  const printCollage = (copies: number) => {
+    socket?.emit('session:print', { copies });
+  };
+
+  const endSession = () => {
+    socket?.emit('session:done');
+  };
+
+  return (
+    <div className="relative w-screen h-screen overflow-hidden bg-black font-sans select-none">
+      {/* 1. Attract Screen (IDLE) */}
+      {state === 'IDLE' && (
+        <AttractScreen onStart={startSession} onAdminTap={handleAdminTap} />
+      )}
+
+      {/* 2. Template Selection */}
+      {state === 'SELECT_TEMPLATE' && (
+        <TemplateSelectorScreen
+          templates={templates}
+          selectedId={session?.templateId || '1'}
+          onSelect={selectTemplate}
+          onReady={readyLiveView}
+          onCancel={endSession}
+        />
+      )}
+
+      {/* 3. Live View & Countdown */}
+      {(state === 'LIVEVIEW_PREP' || state === 'COUNTDOWN' || state === 'CAPTURING') && (
+        <LiveViewScreen
+          currentPose={session?.currentPose || 0}
+          totalPoses={session?.poseCount || 3}
+          countdown={countdown}
+          isFlashing={isFlashing}
+        />
+      )}
+
+      {/* 4. Quick Review Modal with Retake Option */}
+      {state === 'REVIEW_SHOT' && (
+        <ShotReviewModal
+          photoPath={session?.capturedPhotos[session?.currentPose] || ''}
+          currentPose={session?.currentPose || 0}
+          totalPoses={session?.poseCount || 3}
+          retakeCount={session?.retakeCountForCurrentPose || 0}
+          onRetake={retakePose}
+          onAccept={acceptPose}
+        />
+      )}
+
+      {/* 5. Processing / Compositing Screen */}
+      {state === 'PROCESSING' && <ProcessingScreen />}
+
+      {/* 6. Result, Filter & Silent Print / QR Share */}
+      {state === 'RESULT_SHARE' && session && (
+        <ResultShareScreen
+          sessionId={session.id}
+          templateId={session.templateId}
+          activeFilter={session.filter}
+          onApplyFilter={applyFilter}
+          onPrint={printCollage}
+          onDone={endSession}
+        />
+      )}
+
+      {/* Hidden Admin Dashboard Modal */}
+      {showAdmin && (
+        <AdminDashboard
+          onClose={() => setShowAdmin(false)}
+          onSetCameraProvider={(prov) => socket?.emit('admin:setCameraProvider', prov)}
+          onSetPrinterDryRun={(dry) => socket?.emit('admin:setPrinterDryRun', dry)}
+          onTestPrint={() => socket?.emit('admin:testPrint')}
+        />
+      )}
+    </div>
+  );
+};
+
+export default App;

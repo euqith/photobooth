@@ -1,0 +1,2254 @@
+{
+  "1": {
+    "id": "1",
+    "filename": "1.png",
+    "title": "Template 1",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 22,
+        "y": 370,
+        "width": 576,
+        "height": 420,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 22,
+        "y": 802,
+        "width": 576,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 22,
+        "y": 1270,
+        "width": 576,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 730,
+        "y": 370,
+        "width": 576,
+        "height": 420,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 730,
+        "y": 802,
+        "width": 576,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 730,
+        "y": 1270,
+        "width": 576,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 22,
+        "y": 370,
+        "width": 576,
+        "height": 420,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 22,
+        "y": 802,
+        "width": 576,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 22,
+        "y": 1270,
+        "width": 576,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 730,
+        "y": 370,
+        "width": 576,
+        "height": 420,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 730,
+        "y": 802,
+        "width": 576,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 730,
+        "y": 1270,
+        "width": 576,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/1.png"
+  },
+  "2": {
+    "id": "2",
+    "filename": "2.png",
+    "title": "Template 2",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 20,
+        "y": 270,
+        "width": 600,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 20,
+        "y": 762,
+        "width": 604,
+        "height": 464,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 20,
+        "y": 1266,
+        "width": 600,
+        "height": 460,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 676,
+        "y": 270,
+        "width": 600,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 676,
+        "y": 762,
+        "width": 604,
+        "height": 464,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 676,
+        "y": 1266,
+        "width": 600,
+        "height": 460,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 20,
+        "y": 270,
+        "width": 600,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 20,
+        "y": 762,
+        "width": 604,
+        "height": 464,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 20,
+        "y": 1266,
+        "width": 600,
+        "height": 460,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 676,
+        "y": 270,
+        "width": 600,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 676,
+        "y": 762,
+        "width": 604,
+        "height": 464,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 676,
+        "y": 1266,
+        "width": 600,
+        "height": 460,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/2.png"
+  },
+  "3": {
+    "id": "3",
+    "filename": "3.png",
+    "title": "Template 3",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 154,
+        "y": 510,
+        "width": 420,
+        "height": 324,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 154,
+        "y": 958,
+        "width": 420,
+        "height": 320,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 154,
+        "y": 1402,
+        "width": 420,
+        "height": 324,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 758,
+        "y": 510,
+        "width": 424,
+        "height": 324,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 758,
+        "y": 958,
+        "width": 424,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 758,
+        "y": 1402,
+        "width": 424,
+        "height": 324,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 154,
+        "y": 510,
+        "width": 420,
+        "height": 324,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 154,
+        "y": 958,
+        "width": 420,
+        "height": 320,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 154,
+        "y": 1402,
+        "width": 420,
+        "height": 324,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 758,
+        "y": 510,
+        "width": 424,
+        "height": 324,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 758,
+        "y": 958,
+        "width": 424,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 758,
+        "y": 1402,
+        "width": 424,
+        "height": 324,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/3.png"
+  },
+  "4": {
+    "id": "4",
+    "filename": "4.png",
+    "title": "Template 4",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 4,
+    "leftSlots": [
+      {
+        "x": 90,
+        "y": 186,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 86,
+        "y": 574,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 86,
+        "y": 966,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 86,
+        "y": 1358,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 0,
+        "poseIndex": 3
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 738,
+        "y": 186,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 734,
+        "y": 574,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 734,
+        "y": 966,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 738,
+        "y": 1358,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 90,
+        "y": 186,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 86,
+        "y": 574,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 86,
+        "y": 966,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 86,
+        "y": 1358,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 0,
+        "poseIndex": 3
+      },
+      {
+        "x": 738,
+        "y": 186,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 734,
+        "y": 574,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 734,
+        "y": 966,
+        "width": 476,
+        "height": 348,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 738,
+        "y": 1358,
+        "width": 476,
+        "height": 344,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "processedImagePath": "/templates/4.png"
+  },
+  "5": {
+    "id": "5",
+    "filename": "5.png",
+    "title": "Template 5",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 134,
+        "y": 262,
+        "width": 488,
+        "height": 484,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 138,
+        "y": 782,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 138,
+        "y": 1302,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 714,
+        "y": 262,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 714,
+        "y": 782,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 714,
+        "y": 1302,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 134,
+        "y": 262,
+        "width": 488,
+        "height": 484,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 138,
+        "y": 782,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 138,
+        "y": 1302,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 714,
+        "y": 262,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 714,
+        "y": 782,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 714,
+        "y": 1302,
+        "width": 480,
+        "height": 480,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/5.png"
+  },
+  "6": {
+    "id": "6",
+    "filename": "6.png",
+    "title": "Template 6",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 114,
+        "y": 62,
+        "width": 420,
+        "height": 524,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 118,
+        "y": 646,
+        "width": 352,
+        "height": 488,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 154,
+        "y": 1178,
+        "width": 368,
+        "height": 592,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 782,
+        "y": 62,
+        "width": 420,
+        "height": 524,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 786,
+        "y": 646,
+        "width": 352,
+        "height": 488,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 822,
+        "y": 1178,
+        "width": 368,
+        "height": 592,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 114,
+        "y": 62,
+        "width": 420,
+        "height": 524,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 118,
+        "y": 646,
+        "width": 352,
+        "height": 488,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 154,
+        "y": 1178,
+        "width": 368,
+        "height": 592,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 782,
+        "y": 62,
+        "width": 420,
+        "height": 524,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 786,
+        "y": 646,
+        "width": 352,
+        "height": 488,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 822,
+        "y": 1178,
+        "width": 368,
+        "height": 592,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/6.png"
+  },
+  "7": {
+    "id": "7",
+    "filename": "7.png",
+    "title": "Template 7",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 22,
+        "y": 14,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 22,
+        "y": 662,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 22,
+        "y": 1306,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 718,
+        "y": 14,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 718,
+        "y": 662,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 718,
+        "y": 1306,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 22,
+        "y": 14,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 22,
+        "y": 662,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 22,
+        "y": 1306,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 718,
+        "y": 14,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 718,
+        "y": 662,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 718,
+        "y": 1306,
+        "width": 592,
+        "height": 600,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/7.png"
+  },
+  "8": {
+    "id": "8",
+    "filename": "8.png",
+    "title": "Template 8",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 1,
+    "leftSlots": [
+      {
+        "x": 134,
+        "y": 98,
+        "width": 520,
+        "height": 1532,
+        "columnIndex": 0,
+        "poseIndex": 0
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 676,
+        "y": 98,
+        "width": 528,
+        "height": 1532,
+        "columnIndex": 1,
+        "poseIndex": 0
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 134,
+        "y": 98,
+        "width": 520,
+        "height": 1532,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 676,
+        "y": 98,
+        "width": 528,
+        "height": 1532,
+        "columnIndex": 1,
+        "poseIndex": 0
+      }
+    ],
+    "processedImagePath": "/templates/8.png"
+  },
+  "9": {
+    "id": "9",
+    "filename": "9.png",
+    "title": "Template 9",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 62,
+        "y": 354,
+        "width": 544,
+        "height": 444,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 62,
+        "y": 866,
+        "width": 544,
+        "height": 444,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 62,
+        "y": 1378,
+        "width": 544,
+        "height": 444,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 726,
+        "y": 354,
+        "width": 540,
+        "height": 444,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 726,
+        "y": 866,
+        "width": 540,
+        "height": 444,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 726,
+        "y": 1378,
+        "width": 540,
+        "height": 444,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 62,
+        "y": 354,
+        "width": 544,
+        "height": 444,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 62,
+        "y": 866,
+        "width": 544,
+        "height": 444,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 62,
+        "y": 1378,
+        "width": 544,
+        "height": 444,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 726,
+        "y": 354,
+        "width": 540,
+        "height": 444,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 726,
+        "y": 866,
+        "width": 540,
+        "height": 444,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 726,
+        "y": 1378,
+        "width": 540,
+        "height": 444,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/9.png"
+  },
+  "10": {
+    "id": "10",
+    "filename": "10.png",
+    "title": "Template 10",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 114,
+        "y": 178,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 114,
+        "y": 622,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 114,
+        "y": 1066,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 710,
+        "y": 178,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 710,
+        "y": 622,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 710,
+        "y": 1066,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 114,
+        "y": 178,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 114,
+        "y": 622,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 114,
+        "y": 1066,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 710,
+        "y": 178,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 710,
+        "y": 622,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 710,
+        "y": 1066,
+        "width": 508,
+        "height": 396,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/10.png"
+  },
+  "11": {
+    "id": "11",
+    "filename": "11.png",
+    "title": "Template 11",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 106,
+        "y": 142,
+        "width": 492,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 106,
+        "y": 778,
+        "width": 492,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 106,
+        "y": 1286,
+        "width": 492,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 762,
+        "y": 150,
+        "width": 496,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 762,
+        "y": 786,
+        "width": 496,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 762,
+        "y": 1294,
+        "width": 496,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 106,
+        "y": 142,
+        "width": 492,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 106,
+        "y": 778,
+        "width": 492,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 106,
+        "y": 1286,
+        "width": 492,
+        "height": 456,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 762,
+        "y": 150,
+        "width": 496,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 762,
+        "y": 786,
+        "width": 496,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 762,
+        "y": 1294,
+        "width": 496,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/11.png"
+  },
+  "12": {
+    "id": "12",
+    "filename": "12.png",
+    "title": "Template 12",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 90,
+        "y": 106,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 90,
+        "y": 590,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 90,
+        "y": 1066,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 722,
+        "y": 106,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 722,
+        "y": 590,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 722,
+        "y": 1066,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 90,
+        "y": 106,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 90,
+        "y": 590,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 90,
+        "y": 1066,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 722,
+        "y": 106,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 722,
+        "y": 590,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 722,
+        "y": 1066,
+        "width": 536,
+        "height": 416,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/12.png"
+  },
+  "13": {
+    "id": "13",
+    "filename": "13.png",
+    "title": "Template 13",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 98,
+        "y": 222,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 98,
+        "y": 698,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 98,
+        "y": 1174,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 746,
+        "y": 222,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 746,
+        "y": 698,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 746,
+        "y": 1174,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 98,
+        "y": 222,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 98,
+        "y": 698,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 98,
+        "y": 1174,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 746,
+        "y": 222,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 746,
+        "y": 698,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 746,
+        "y": 1174,
+        "width": 516,
+        "height": 452,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/13.png"
+  },
+  "14": {
+    "id": "14",
+    "filename": "14.png",
+    "title": "Template 14",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 66,
+        "y": 122,
+        "width": 524,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 66,
+        "y": 698,
+        "width": 524,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 66,
+        "y": 1274,
+        "width": 524,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 762,
+        "y": 118,
+        "width": 544,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 762,
+        "y": 694,
+        "width": 544,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 762,
+        "y": 1274,
+        "width": 544,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 66,
+        "y": 122,
+        "width": 524,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 66,
+        "y": 698,
+        "width": 524,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 66,
+        "y": 1274,
+        "width": 524,
+        "height": 452,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 762,
+        "y": 118,
+        "width": 544,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 762,
+        "y": 694,
+        "width": 544,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 762,
+        "y": 1274,
+        "width": 544,
+        "height": 456,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/14.png"
+  },
+  "15": {
+    "id": "15",
+    "filename": "15.png",
+    "title": "Template 15",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 4,
+    "leftSlots": [
+      {
+        "x": 90,
+        "y": 134,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 90,
+        "y": 486,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 90,
+        "y": 838,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 90,
+        "y": 1194,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 3
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 750,
+        "y": 166,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 750,
+        "y": 510,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 750,
+        "y": 854,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 750,
+        "y": 1202,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 90,
+        "y": 134,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 90,
+        "y": 486,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 90,
+        "y": 838,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 90,
+        "y": 1194,
+        "width": 528,
+        "height": 328,
+        "columnIndex": 0,
+        "poseIndex": 3
+      },
+      {
+        "x": 750,
+        "y": 166,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 750,
+        "y": 510,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 750,
+        "y": 854,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 750,
+        "y": 1202,
+        "width": 516,
+        "height": 320,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "processedImagePath": "/templates/15.png"
+  },
+  "16": {
+    "id": "16",
+    "filename": "16.png",
+    "title": "Template 16",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 102,
+        "y": 426,
+        "width": 484,
+        "height": 364,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 106,
+        "y": 810,
+        "width": 480,
+        "height": 364,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 106,
+        "y": 1194,
+        "width": 480,
+        "height": 364,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 738,
+        "y": 414,
+        "width": 484,
+        "height": 368,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 738,
+        "y": 802,
+        "width": 484,
+        "height": 368,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 738,
+        "y": 1186,
+        "width": 484,
+        "height": 368,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 102,
+        "y": 426,
+        "width": 484,
+        "height": 364,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 106,
+        "y": 810,
+        "width": 480,
+        "height": 364,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 106,
+        "y": 1194,
+        "width": 480,
+        "height": 364,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 738,
+        "y": 414,
+        "width": 484,
+        "height": 368,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 738,
+        "y": 802,
+        "width": 484,
+        "height": 368,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 738,
+        "y": 1186,
+        "width": 484,
+        "height": 368,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/16.png"
+  },
+  "17": {
+    "id": "17",
+    "filename": "17.png",
+    "title": "Template 17",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 3,
+    "leftSlots": [
+      {
+        "x": 118,
+        "y": 322,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 118,
+        "y": 838,
+        "width": 476,
+        "height": 304,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 118,
+        "y": 1354,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 0,
+        "poseIndex": 2
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 778,
+        "y": 322,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 778,
+        "y": 838,
+        "width": 476,
+        "height": 304,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 778,
+        "y": 1354,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 118,
+        "y": 322,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 118,
+        "y": 838,
+        "width": 476,
+        "height": 304,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 118,
+        "y": 1354,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 778,
+        "y": 322,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 778,
+        "y": 838,
+        "width": 476,
+        "height": 304,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 778,
+        "y": 1354,
+        "width": 476,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 2
+      }
+    ],
+    "processedImagePath": "/templates/17.png"
+  },
+  "18": {
+    "id": "18",
+    "filename": "18.png",
+    "title": "Template 18",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 2,
+    "leftSlots": [
+      {
+        "x": 154,
+        "y": 174,
+        "width": 400,
+        "height": 544,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 154,
+        "y": 906,
+        "width": 400,
+        "height": 544,
+        "columnIndex": 0,
+        "poseIndex": 1
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 806,
+        "y": 174,
+        "width": 396,
+        "height": 544,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 806,
+        "y": 906,
+        "width": 396,
+        "height": 544,
+        "columnIndex": 1,
+        "poseIndex": 1
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 154,
+        "y": 174,
+        "width": 400,
+        "height": 544,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 154,
+        "y": 906,
+        "width": 400,
+        "height": 544,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 806,
+        "y": 174,
+        "width": 396,
+        "height": 544,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 806,
+        "y": 906,
+        "width": 396,
+        "height": 544,
+        "columnIndex": 1,
+        "poseIndex": 1
+      }
+    ],
+    "processedImagePath": "/templates/18.png"
+  },
+  "19": {
+    "id": "19",
+    "filename": "19.png",
+    "title": "Template 19",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 4,
+    "leftSlots": [
+      {
+        "x": 70,
+        "y": 178,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 70,
+        "y": 606,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 70,
+        "y": 1034,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 70,
+        "y": 1462,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 3
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 730,
+        "y": 178,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 730,
+        "y": 606,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 730,
+        "y": 1034,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 730,
+        "y": 1462,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 70,
+        "y": 178,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 70,
+        "y": 606,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 70,
+        "y": 1034,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 70,
+        "y": 1462,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 0,
+        "poseIndex": 3
+      },
+      {
+        "x": 730,
+        "y": 178,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 730,
+        "y": 606,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 730,
+        "y": 1034,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 730,
+        "y": 1462,
+        "width": 564,
+        "height": 384,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "processedImagePath": "/templates/19.png"
+  },
+  "20": {
+    "id": "20",
+    "filename": "20.png",
+    "title": "Template 20",
+    "canvasWidth": 1333,
+    "canvasHeight": 1999,
+    "poseCount": 4,
+    "leftSlots": [
+      {
+        "x": 98,
+        "y": 174,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 98,
+        "y": 530,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 98,
+        "y": 886,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 98,
+        "y": 1242,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 3
+      }
+    ],
+    "rightSlots": [
+      {
+        "x": 742,
+        "y": 170,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 742,
+        "y": 526,
+        "width": 500,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 742,
+        "y": 882,
+        "width": 500,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 742,
+        "y": 1238,
+        "width": 500,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "allSlots": [
+      {
+        "x": 98,
+        "y": 174,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 0
+      },
+      {
+        "x": 98,
+        "y": 530,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 1
+      },
+      {
+        "x": 98,
+        "y": 886,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 2
+      },
+      {
+        "x": 98,
+        "y": 1242,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 0,
+        "poseIndex": 3
+      },
+      {
+        "x": 742,
+        "y": 170,
+        "width": 500,
+        "height": 312,
+        "columnIndex": 1,
+        "poseIndex": 0
+      },
+      {
+        "x": 742,
+        "y": 526,
+        "width": 500,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 1
+      },
+      {
+        "x": 742,
+        "y": 882,
+        "width": 500,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 2
+      },
+      {
+        "x": 742,
+        "y": 1238,
+        "width": 500,
+        "height": 308,
+        "columnIndex": 1,
+        "poseIndex": 3
+      }
+    ],
+    "processedImagePath": "/templates/20.png"
+  }
+}

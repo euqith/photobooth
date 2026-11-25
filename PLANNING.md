@@ -9,7 +9,7 @@ Aplikasi **Professional DSLR Photobooth** ini dirancang sebagai **Local Desktop 
 | :--- | :--- | :--- | :--- | :--- |
 | **1. Development** | macOS (Apple Silicon M-Series) | Canon EOS 6D Mark I | Battery / AC Adapter, Local Mock/CUPS Printer | UI/UX development, DSLR tether & Live View integration, Image compositing engine |
 | **2. Testing / QA** | macOS & Windows 10/11 | Canon EOS 6D Mark I | USB Tether Cable + Suppressor, Test Printer | Cross-platform HAL verification, stress-testing USB recovery & memory leak checks |
-| **3. Production** | Windows 10/11 (PC AIO Touchscreen i5 Gen 6) | Canon EOS 70D | **Dummy Battery (AC-E6 / DR-E6)** + Dedicated Photo Printer (DNP / HiTi / Canon / Epson) | Fullscreen Kiosk Operation, High-throughput event stability (6–12 hours nonstop) |
+| **3. Production** | Windows 10/11 (PC AIO Touchscreen i5 Gen 6) | Canon EOS 70D | **Dummy Battery (AC-E6 / DR-E6)** + Dedicated Photo Printer (maybe DNP / HiTi / Canon / Epson)- for printer is still not confirmed | Fullscreen Kiosk Operation, High-throughput event stability (6–12 hours nonstop) |
 
 ---
 
