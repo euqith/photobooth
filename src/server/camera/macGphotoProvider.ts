@@ -1,7 +1,10 @@
 import { ICameraProvider, CameraHealth, CaptureResult } from './types';
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execFile, ChildProcess } from 'child_process';
+import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
+
+const execFileAsync = promisify(execFile);
 
 const GPHOTO_BIN = fs.existsSync('/opt/homebrew/bin/gphoto2')
   ? '/opt/homebrew/bin/gphoto2'
@@ -17,28 +20,28 @@ const EXEC_ENV = {
 /**
  * MacGphotoProvider
  * Connects to Canon EOS 6D Mark I on macOS Apple Silicon via gphoto2.
- * Automatically kills macOS ptpcamerad to prevent USB interface lockups.
+ * Uses non-blocking async execFile so Socket.io and UI clicks are NEVER frozen.
  */
 export class MacGphotoProvider implements ICameraProvider {
   readonly name = 'gphoto2' as const;
   private isEvfActive = false;
   private evfProcess: ChildProcess | null = null;
+  private isDroppingMirror = false;
 
   async initialize(): Promise<CameraHealth> {
-    this.killMacPtpDaemons();
+    await this.killMacPtpDaemons();
 
     try {
-      const output = execSync(`${GPHOTO_BIN} --auto-detect`, {
-        encoding: 'utf-8',
+      const { stdout } = await execFileAsync(GPHOTO_BIN, ['--auto-detect'], {
         timeout: 4000,
         env: EXEC_ENV,
       });
-      const hasCanon = output.toLowerCase().includes('canon');
+      const hasCanon = stdout.toLowerCase().includes('canon');
 
       return {
         connected: hasCanon,
         model: hasCanon ? 'Canon EOS 6D (gphoto2)' : 'gphoto2 (No Canon detected)',
-        isLiveViewActive: false,
+        isLiveViewActive: this.isEvfActive,
         temperatureSafe: true,
         lastError: hasCanon ? undefined : 'Kamera Canon belum terdeteksi di port USB.',
       };
@@ -52,20 +55,22 @@ export class MacGphotoProvider implements ICameraProvider {
     }
   }
 
-  private killMacPtpDaemons(): void {
+  private async killMacPtpDaemons(): Promise<void> {
     try {
-      execSync('killall -9 ptpcamerad PTPCamera 2>/dev/null || true', { env: EXEC_ENV });
+      await execFileAsync('killall', ['-9', 'ptpcamerad', 'PTPCamera'], {
+        timeout: 1500,
+        env: EXEC_ENV,
+      });
     } catch {
-      // ignore
+      // ignore when processes are not running
     }
   }
 
   async startLiveView(onFrame: (jpegBuffer: Buffer) => void): Promise<void> {
     if (this.isEvfActive) return;
-    this.killMacPtpDaemons();
+    await this.killMacPtpDaemons();
     this.isEvfActive = true;
 
-    // Use gphoto2 movie stream over stdout
     this.evfProcess = spawn(GPHOTO_BIN, ['--capture-movie', '--stdout'], {
       stdio: ['ignore', 'pipe', 'ignore'],
       env: EXEC_ENV,
@@ -95,7 +100,6 @@ export class MacGphotoProvider implements ICameraProvider {
         }
       }
 
-      // Safeguard buffer overflow
       if (buffer.length > 5 * 1024 * 1024) {
         buffer = Buffer.alloc(0);
       }
@@ -106,16 +110,23 @@ export class MacGphotoProvider implements ICameraProvider {
     });
   }
 
-  private turnOffCameraEvf(): void {
+  private async turnOffCameraEvf(): Promise<void> {
+    if (this.isDroppingMirror) return;
+    this.isDroppingMirror = true;
     try {
-      this.killMacPtpDaemons();
-      execSync(`${GPHOTO_BIN} --set-config /main/actions/viewfinder=0 --set-config /main/settings/output=Off`, {
-        timeout: 5000,
-        env: EXEC_ENV,
-        stdio: 'ignore',
-      });
+      await this.killMacPtpDaemons();
+      await execFileAsync(
+        GPHOTO_BIN,
+        ['--set-config', '/main/actions/viewfinder=0', '--set-config', '/main/settings/output=Off'],
+        {
+          timeout: 5000,
+          env: EXEC_ENV,
+        }
+      );
     } catch {
-      // ignore if camera is disconnected
+      // ignore if camera is disconnected or busy
+    } finally {
+      this.isDroppingMirror = false;
     }
   }
 
@@ -158,45 +169,45 @@ export class MacGphotoProvider implements ICameraProvider {
         }
       });
 
-      // Small 350ms buffer for USB controller & Canon 6D to settle
       await new Promise((r) => setTimeout(r, 350));
     }
 
-    // Explicitly turn off Canon EVF / drop mirror so sensor cools down during idle/processing
+    // Explicitly turn off Canon EVF / drop mirror asynchronously without freezing UI
     if (dropMirror) {
-      this.turnOffCameraEvf();
+      await this.turnOffCameraEvf();
     }
   }
 
   async capturePhoto(targetPath: string): Promise<CaptureResult> {
     const start = Date.now();
-    // 1. Ensure Live View process has 100% exited and USB bus is free (skip redundant mirror drop before capture)
     await this.stopLiveView(false);
-    this.killMacPtpDaemons();
+    await this.killMacPtpDaemons();
 
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
 
     const dir = path.dirname(targetPath);
     const baseName = path.basename(targetPath);
 
-    // 2. Capture and download with retry if USB is transiently busy
     let captured = false;
     let lastErr: any = null;
 
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        execSync(`${GPHOTO_BIN} --capture-image-and-download --filename "${baseName}" --force-overwrite`, {
-          cwd: dir,
-          timeout: 12000,
-          env: EXEC_ENV,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
+        await execFileAsync(
+          GPHOTO_BIN,
+          ['--capture-image-and-download', '--filename', baseName, '--force-overwrite'],
+          {
+            cwd: dir,
+            timeout: 12000,
+            env: EXEC_ENV,
+          }
+        );
         captured = true;
         break;
       } catch (err: any) {
         lastErr = err;
         console.warn(`[Camera] Capture attempt ${attempt} failed: ${err.message}. Retrying...`);
-        this.killMacPtpDaemons();
+        await this.killMacPtpDaemons();
         await new Promise((r) => setTimeout(r, 600));
       }
     }
@@ -205,7 +216,6 @@ export class MacGphotoProvider implements ICameraProvider {
       throw lastErr || new Error('Capture failed after 2 attempts.');
     }
 
-    // 3. Post-capture settling delay before next Live View can start
     await new Promise((r) => setTimeout(r, 400));
 
     return {
@@ -219,16 +229,16 @@ export class MacGphotoProvider implements ICameraProvider {
   }
 
   async resetConnection(): Promise<void> {
-    await this.stopLiveView();
-    this.killMacPtpDaemons();
+    await this.stopLiveView(true);
+    await this.killMacPtpDaemons();
     try {
-      execSync(`${GPHOTO_BIN} --reset 2>/dev/null || true`, { env: EXEC_ENV });
+      await execFileAsync(GPHOTO_BIN, ['--reset'], { timeout: 4000, env: EXEC_ENV });
     } catch {
       // ignore
     }
   }
 
   async dispose(): Promise<void> {
-    await this.stopLiveView();
+    await this.stopLiveView(true);
   }
 }

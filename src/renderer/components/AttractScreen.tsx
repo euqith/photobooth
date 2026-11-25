@@ -8,11 +8,18 @@ interface AttractScreenProps {
 
 export const AttractScreen: React.FC<AttractScreenProps> = ({ onStart, onAdminTap }) => {
   return (
-    <div className="relative w-full h-full overflow-hidden bg-black cursor-pointer" onClick={onStart}>
+    <div
+      className="relative w-full h-full overflow-hidden bg-black cursor-pointer"
+      onPointerDown={(e) => {
+        // Ignore taps inside the hidden top-left admin hotspot
+        if (e.clientX < 96 && e.clientY < 96) return;
+        onStart();
+      }}
+    >
       {/* Hidden Operator Hotspot (Tap 5x in top-left to open Admin) */}
       <div
         className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0"
-        onClick={(e) => {
+        onPointerDown={(e) => {
           e.stopPropagation();
           onAdminTap();
         }}
