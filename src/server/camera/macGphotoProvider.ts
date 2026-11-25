@@ -3,6 +3,17 @@ import { spawn, execSync, ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const GPHOTO_BIN = fs.existsSync('/opt/homebrew/bin/gphoto2')
+  ? '/opt/homebrew/bin/gphoto2'
+  : fs.existsSync('/usr/local/bin/gphoto2')
+  ? '/usr/local/bin/gphoto2'
+  : 'gphoto2';
+
+const EXEC_ENV = {
+  ...process.env,
+  PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${process.env.PATH || ''}`,
+};
+
 /**
  * MacGphotoProvider
  * Connects to Canon EOS 6D Mark I on macOS Apple Silicon via gphoto2.
@@ -17,7 +28,11 @@ export class MacGphotoProvider implements ICameraProvider {
     this.killMacPtpDaemons();
 
     try {
-      const output = execSync('gphoto2 --auto-detect', { encoding: 'utf-8', timeout: 4000 });
+      const output = execSync(`${GPHOTO_BIN} --auto-detect`, {
+        encoding: 'utf-8',
+        timeout: 4000,
+        env: EXEC_ENV,
+      });
       const hasCanon = output.toLowerCase().includes('canon');
 
       return {
@@ -25,20 +40,21 @@ export class MacGphotoProvider implements ICameraProvider {
         model: hasCanon ? 'Canon EOS 6D (gphoto2)' : 'gphoto2 (No Canon detected)',
         isLiveViewActive: false,
         temperatureSafe: true,
+        lastError: hasCanon ? undefined : 'Kamera Canon belum terdeteksi di port USB.',
       };
     } catch (err: any) {
       return {
         connected: false,
         model: 'gphoto2 error',
         isLiveViewActive: false,
-        lastError: err?.message || 'gphoto2 not found or camera disconnected',
+        lastError: err?.message || 'gphoto2 error or camera disconnected',
       };
     }
   }
 
   private killMacPtpDaemons(): void {
     try {
-      execSync('killall -9 ptpcamerad PTPCamera 2>/dev/null || true');
+      execSync('killall -9 ptpcamerad PTPCamera 2>/dev/null || true', { env: EXEC_ENV });
     } catch {
       // ignore
     }
@@ -50,8 +66,9 @@ export class MacGphotoProvider implements ICameraProvider {
     this.isEvfActive = true;
 
     // Use gphoto2 movie stream over stdout
-    this.evfProcess = spawn('gphoto2', ['--capture-movie', '--stdout'], {
+    this.evfProcess = spawn(GPHOTO_BIN, ['--capture-movie', '--stdout'], {
       stdio: ['ignore', 'pipe', 'ignore'],
+      env: EXEC_ENV,
     });
 
     let buffer = Buffer.alloc(0);
@@ -113,9 +130,10 @@ export class MacGphotoProvider implements ICameraProvider {
     const baseName = path.basename(targetPath);
 
     // Capture and download
-    execSync(`gphoto2 --capture-image-and-download --filename "${baseName}" --force-overwrite`, {
+    execSync(`${GPHOTO_BIN} --capture-image-and-download --filename "${baseName}" --force-overwrite`, {
       cwd: dir,
       timeout: 10000,
+      env: EXEC_ENV,
     });
 
     return {
@@ -132,7 +150,7 @@ export class MacGphotoProvider implements ICameraProvider {
     await this.stopLiveView();
     this.killMacPtpDaemons();
     try {
-      execSync('gphoto2 --reset 2>/dev/null || true');
+      execSync(`${GPHOTO_BIN} --reset 2>/dev/null || true`, { env: EXEC_ENV });
     } catch {
       // ignore
     }
