@@ -60,14 +60,39 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
 
   return (
     <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden select-none">
-      {/* Live View Canvas (Horizontally Mirrored, object-contain to avoid any crop or zoom) */}
-      <canvas
-        ref={canvasRef}
-        id="liveview-canvas"
-        width={1056}
-        height={704}
-        className="w-full h-full object-contain transform scale-x-[-1]"
-      />
+      {/* 3:2 Aspect Ratio Camera Sensor Container (Zero Zoom, Native Full Frame View) */}
+      <div className="relative aspect-[3/2] h-full max-w-full flex items-center justify-center overflow-hidden">
+        {/* Live View Canvas (Un-mirrored, 1:1 match with actual captured photo) */}
+        <canvas
+          ref={canvasRef}
+          id="liveview-canvas"
+          width={1056}
+          height={704}
+          className="w-full h-full object-contain"
+        />
+
+        {/* Dynamic Camera Slot Framing Guide Overlay matching exact mathematical crop of the slot */}
+        <div
+          style={{
+            width: slotRatio <= 1.5 ? `${(slotRatio / 1.5) * 100}%` : '100%',
+            height: slotRatio > 1.5 ? `${(1.5 / slotRatio) * 100}%` : '100%',
+            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.35)', // Dim only the slight cropped-out borders
+          }}
+          className="absolute inset-auto border-3 border-dashed border-pink-400 rounded-2xl pointer-events-none transition-all duration-300 flex items-center justify-center"
+        >
+          {/* Corner Markers */}
+          <div className="absolute -top-1 -left-1 w-6 h-6 border-t-3 border-l-3 border-pink-500 rounded-tl-xl shadow-md" />
+          <div className="absolute -top-1 -right-1 w-6 h-6 border-t-3 border-r-3 border-pink-500 rounded-tr-xl shadow-md" />
+          <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-3 border-l-3 border-pink-500 rounded-bl-xl shadow-md" />
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-3 border-r-3 border-pink-500 rounded-br-xl shadow-md" />
+
+          {/* Top Label Badge */}
+          <div className="absolute top-3 left-1/2 transform -translate-x-1/2 bg-black/90 px-4 py-1 rounded-full text-xs font-black text-pink-400 uppercase tracking-widest border border-pink-500/60 shadow-xl flex items-center gap-1.5 whitespace-nowrap">
+            <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+            <span>Area Foto Kolase ({isLandscape ? 'Landscape' : isSquare ? 'Persegi' : 'Portrait'})</span>
+          </div>
+        </div>
+      </div>
 
       {/* Camera Initializing Loader while mirror is flipping */}
       {!hasReceivedFrame && (
@@ -76,33 +101,6 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
           <p className="text-gray-300 font-semibold text-sm">Menghubungkan Kamera Canon 6D...</p>
         </div>
       )}
-
-      {/* Dynamic Camera Slot Framing Guide Overlay matching selected template slot ratio */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
-        <div
-          style={{
-            aspectRatio: `${slotRatio}`,
-            width: isLandscape ? 'min(820px, 80vw)' : undefined,
-            height: !isLandscape ? 'min(620px, 72vh)' : undefined,
-            maxHeight: '72vh',
-            maxWidth: '82vw',
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)', // Dim outside area so crop area is crystal clear
-          }}
-          className="border-4 border-dashed border-pink-400 rounded-3xl relative transition-all duration-300 ease-out flex items-center justify-center"
-        >
-          {/* High-visibility Corner Markers */}
-          <div className="absolute -top-1.5 -left-1.5 w-8 h-8 border-t-4 border-l-4 border-pink-500 rounded-tl-2xl shadow-lg" />
-          <div className="absolute -top-1.5 -right-1.5 w-8 h-8 border-t-4 border-r-4 border-pink-500 rounded-tr-2xl shadow-lg" />
-          <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 border-b-4 border-l-4 border-pink-500 rounded-bl-2xl shadow-lg" />
-          <div className="absolute -bottom-1.5 -right-1.5 w-8 h-8 border-b-4 border-r-4 border-pink-500 rounded-br-2xl shadow-lg" />
-
-          {/* Top Label Badge */}
-          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-black/95 px-5 py-1.5 rounded-full text-xs font-black text-pink-400 uppercase tracking-widest border border-pink-500/60 shadow-2xl flex items-center gap-2 whitespace-nowrap">
-            <Sparkles className="w-3.5 h-3.5 text-pink-400" />
-            <span>Area Foto Kolase ({isLandscape ? 'Landscape' : isSquare ? 'Persegi' : 'Portrait'})</span>
-          </div>
-        </div>
-      </div>
 
       {/* Interactive "AMBIL FOTO" Button during LIVEVIEW_PREP */}
       {state === 'LIVEVIEW_PREP' && countdown === 0 && (
