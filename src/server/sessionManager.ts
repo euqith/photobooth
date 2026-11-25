@@ -52,6 +52,7 @@ export class SessionManager {
       printCopies: 1,
       state: 'SELECT_TEMPLATE',
     };
+    this.updateActiveSlot();
 
     // Ensure session directory exists
     const sessionDir = path.join(this.sessionsDir, id);
@@ -59,6 +60,15 @@ export class SessionManager {
 
     this.broadcastState();
     return this.currentSession;
+  }
+
+  private updateActiveSlot(): void {
+    if (!this.currentSession) return;
+    const template = TemplateCompositor.getTemplate(this.currentSession.templateId);
+    if (!template) return;
+    this.currentSession.activeSlot =
+      template.leftSlots.find((s) => s.poseIndex === this.currentSession?.currentPose) ||
+      template.leftSlots[0];
   }
 
   public selectTemplate(templateId: string): void {
@@ -69,33 +79,34 @@ export class SessionManager {
     this.currentSession.templateId = templateId;
     this.currentSession.poseCount = template.poseCount;
     this.currentSession.currentPose = 0;
+    this.updateActiveSlot();
     this.currentSession.state = 'SELECT_TEMPLATE';
     this.broadcastState();
   }
 
   public async proceedToLiveView(): Promise<void> {
-    await this.enterLiveViewAndCountdown();
+    await this.enterLiveView();
   }
 
-  private async enterLiveViewAndCountdown(): Promise<void> {
+  public async enterLiveView(): Promise<void> {
     if (!this.currentSession) return;
 
     this.currentSession.state = 'LIVEVIEW_PREP';
     this.countdownVal = 0;
+    this.updateActiveSlot();
     this.broadcastState();
 
     // Start Live View stream
     await this.cameraManager.startLiveView((frameBuffer) => {
       this.io.emit('camera:frame', frameBuffer);
     });
+    // Camera is streaming in LIVEVIEW_PREP, waiting for user to press AMBIL FOTO button
+  }
 
-    // 2.5 second breather: camera mirror flips up, sensor stabilizes, and user gets ready
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-
-    // Ensure session is still active and in LIVEVIEW_PREP before starting countdown
-    if (this.currentSession && this.currentSession.state === 'LIVEVIEW_PREP') {
-      this.startCountdown();
-    }
+  public startUserCountdown(): void {
+    if (!this.currentSession) return;
+    if (this.currentSession.state !== 'LIVEVIEW_PREP') return;
+    this.startCountdown();
   }
 
   public startCountdown(): void {
@@ -152,7 +163,7 @@ export class SessionManager {
   public async retakeCurrentPose(): Promise<void> {
     if (!this.currentSession || this.currentSession.state !== 'REVIEW_SHOT') return;
     this.currentSession.retakeCountForCurrentPose++;
-    await this.enterLiveViewAndCountdown();
+    await this.enterLiveView();
   }
 
   public async acceptPoseAndContinue(): Promise<void> {
@@ -163,7 +174,7 @@ export class SessionManager {
       // More poses remaining
       this.currentSession.currentPose = nextPose;
       this.currentSession.retakeCountForCurrentPose = 0;
-      await this.enterLiveViewAndCountdown();
+      await this.enterLiveView();
     } else {
       // All poses captured! Transition to Processing
       await this.processSessionResult();

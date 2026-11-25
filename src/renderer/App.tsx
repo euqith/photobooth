@@ -103,6 +103,10 @@ export const App: React.FC = () => {
     socket?.emit('session:readyLiveView');
   };
 
+  const triggerCountdown = () => {
+    socket?.emit('session:startCountdown');
+  };
+
   const retakePose = () => {
     socket?.emit('session:retake');
   };
@@ -149,12 +153,8 @@ export const App: React.FC = () => {
           countdown={countdown}
           isFlashing={isFlashing}
           state={state}
-          activeSlot={
-            templates
-              .find((t) => t.id === (session?.templateId || '1'))
-              ?.leftSlots.find((s) => s.poseIndex === (session?.currentPose || 0)) ||
-            templates.find((t) => t.id === (session?.templateId || '1'))?.leftSlots[0]
-          }
+          activeSlot={session?.activeSlot}
+          onStartCountdown={triggerCountdown}
         />
       )}
 
@@ -165,6 +165,7 @@ export const App: React.FC = () => {
           currentPose={session?.currentPose || 0}
           totalPoses={session?.poseCount || 3}
           retakeCount={session?.retakeCountForCurrentPose || 0}
+          activeSlot={session?.activeSlot}
           onRetake={retakePose}
           onAccept={acceptPose}
         />

@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RotateCcw, Check, Sparkles } from 'lucide-react';
+import { SlotBox } from '../../shared/types';
 
 interface ShotReviewModalProps {
   photoPath: string;
   currentPose: number;
   totalPoses: number;
   retakeCount: number;
+  activeSlot?: SlotBox;
   onRetake: () => void;
   onAccept: () => void;
 }
@@ -15,12 +17,19 @@ export const ShotReviewModal: React.FC<ShotReviewModalProps> = ({
   currentPose,
   totalPoses,
   retakeCount,
+  activeSlot,
   onRetake,
   onAccept,
 }) => {
   const [autoSeconds, setAutoSeconds] = useState(4);
   const onAcceptRef = useRef(onAccept);
   const hasTriggeredRef = useRef(false);
+
+  // Calculate slot aspect ratio (default to landscape 1.37 if not provided)
+  const slotRatio = activeSlot && activeSlot.height > 0
+    ? activeSlot.width / activeSlot.height
+    : 1.37;
+  const isLandscape = slotRatio > 1.05;
 
   useEffect(() => {
     onAcceptRef.current = onAccept;
@@ -80,13 +89,23 @@ export const ShotReviewModal: React.FC<ShotReviewModalProps> = ({
         </div>
       </div>
 
-      {/* Captured High-Res Photo Preview */}
-      <div className="max-h-[65vh] aspect-[2/3] rounded-3xl overflow-hidden border-4 border-pink-500/50 shadow-2xl bg-gray-900 flex items-center justify-center">
+      {/* Captured High-Res Photo Preview matching active slot aspect ratio */}
+      <div
+        style={{
+          aspectRatio: `${slotRatio}`,
+          maxHeight: '62vh',
+          maxWidth: isLandscape ? '75vw' : '48vw',
+        }}
+        className="rounded-3xl overflow-hidden border-4 border-pink-500/70 shadow-2xl bg-gray-900 flex items-center justify-center relative"
+      >
         {photoUrl ? (
           <img src={photoUrl} alt="Review Shot" className="w-full h-full object-cover" />
         ) : (
           <div className="text-gray-500">Memuat foto...</div>
         )}
+        <div className="absolute top-3.5 right-3.5 bg-black/80 px-3.5 py-1 rounded-full text-xs font-bold text-pink-400 uppercase tracking-wider border border-pink-500/40 shadow-lg">
+          {isLandscape ? 'Landscape' : 'Portrait'}
+        </div>
       </div>
 
       {/* Bottom Actions */}

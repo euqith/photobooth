@@ -259,6 +259,10 @@ io.on('connection', (socket) => {
     await sessionManager.proceedToLiveView();
   });
 
+  socket.on('session:startCountdown', () => {
+    sessionManager.startUserCountdown();
+  });
+
   socket.on('session:retake', async () => {
     await sessionManager.retakeCurrentPose();
   });

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, Sparkles } from 'lucide-react';
 import { PhotoboothState, SlotBox } from '../../shared/types';
 
 interface LiveViewScreenProps {
@@ -9,6 +9,7 @@ interface LiveViewScreenProps {
   isFlashing: boolean;
   state: PhotoboothState;
   activeSlot?: SlotBox;
+  onStartCountdown: () => void;
 }
 
 export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
@@ -18,6 +19,7 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
   isFlashing,
   state,
   activeSlot,
+  onStartCountdown,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hasReceivedFrame, setHasReceivedFrame] = useState(false);
@@ -57,7 +59,7 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
   }, [countdown]);
 
   return (
-    <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+    <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden select-none">
       {/* Live View Canvas (Horizontally Mirrored, object-contain to avoid any crop or zoom) */}
       <canvas
         ref={canvasRef}
@@ -80,49 +82,46 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
         <div
           style={{
             aspectRatio: `${slotRatio}`,
-            width: isLandscape ? 'min(760px, 78vw)' : undefined,
-            height: !isLandscape ? 'min(640px, 75vh)' : undefined,
-            maxHeight: '75vh',
+            width: isLandscape ? 'min(820px, 80vw)' : undefined,
+            height: !isLandscape ? 'min(620px, 72vh)' : undefined,
+            maxHeight: '72vh',
             maxWidth: '82vw',
+            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)', // Dim outside area so crop area is crystal clear
           }}
-          className="border-4 border-dashed border-pink-400/80 rounded-3xl relative shadow-[0_0_35px_rgba(244,63,94,0.25)] transition-all duration-500 ease-out flex items-center justify-center"
+          className="border-4 border-dashed border-pink-400 rounded-3xl relative transition-all duration-300 ease-out flex items-center justify-center"
         >
-          {/* Subtle Corner Markers */}
-          <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-pink-500 rounded-tl-2xl" />
-          <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-pink-500 rounded-tr-2xl" />
-          <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-pink-500 rounded-bl-2xl" />
-          <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-pink-500 rounded-br-2xl" />
-
-          {/* Center Subtle Framing Oval Guide */}
-          <div className="w-40 h-52 rounded-full border border-white/20 pointer-events-none" />
+          {/* High-visibility Corner Markers */}
+          <div className="absolute -top-1.5 -left-1.5 w-8 h-8 border-t-4 border-l-4 border-pink-500 rounded-tl-2xl shadow-lg" />
+          <div className="absolute -top-1.5 -right-1.5 w-8 h-8 border-t-4 border-r-4 border-pink-500 rounded-tr-2xl shadow-lg" />
+          <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 border-b-4 border-l-4 border-pink-500 rounded-bl-2xl shadow-lg" />
+          <div className="absolute -bottom-1.5 -right-1.5 w-8 h-8 border-b-4 border-r-4 border-pink-500 rounded-br-2xl shadow-lg" />
 
           {/* Top Label Badge */}
-          <div className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 bg-black/90 px-4 py-1 rounded-full text-xs font-bold text-pink-400 uppercase tracking-wider border border-pink-500/50 shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-black/95 px-5 py-1.5 rounded-full text-xs font-black text-pink-400 uppercase tracking-widest border border-pink-500/60 shadow-2xl flex items-center gap-2 whitespace-nowrap">
+            <Sparkles className="w-3.5 h-3.5 text-pink-400" />
             <span>Area Foto Kolase ({isLandscape ? 'Landscape' : isSquare ? 'Persegi' : 'Portrait'})</span>
           </div>
         </div>
       </div>
 
-      {/* Preparatory "SIAP-SIAP!" Breather Banner before countdown begins */}
-      {state === 'LIVEVIEW_PREP' && hasReceivedFrame && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/35 backdrop-blur-[2px] pointer-events-none z-30 animate-fade-in">
-          <div className="bg-black/90 border-2 border-pink-500/80 px-10 py-6 rounded-3xl shadow-2xl flex flex-col items-center text-center animate-pulse">
-            <div className="flex items-center gap-2 text-pink-400 font-extrabold text-xs uppercase tracking-widest mb-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-pink-500 animate-ping" />
-              Kamera Canon 6D Siap
-            </div>
-            <h2 className="text-4xl font-display font-black text-white tracking-wide">
-              SIAP-SIAP!
-            </h2>
-            <p className="text-gray-300 text-sm mt-2 max-w-xs">
-              Atur posisimu di dalam kotak panduan. Hitungan mundur akan segera dimulai!
-            </p>
-          </div>
+      {/* Interactive "AMBIL FOTO" Button during LIVEVIEW_PREP */}
+      {state === 'LIVEVIEW_PREP' && countdown === 0 && (
+        <div className="absolute bottom-10 inset-x-0 flex flex-col items-center justify-center z-30 pointer-events-auto animate-fade-in">
+          <button
+            onClick={onStartCountdown}
+            className="px-12 py-5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-700 text-white rounded-full font-display font-black text-2xl shadow-[0_0_50px_rgba(244,63,94,0.7)] flex items-center gap-4 active:scale-95 transition-all cursor-pointer border-3 border-white/50 animate-bounce"
+          >
+            <Camera className="w-8 h-8" />
+            <span>AMBIL FOTO</span>
+          </button>
+          <span className="text-white text-sm font-bold mt-3 bg-black/80 px-6 py-1.5 rounded-full backdrop-blur-md border border-white/20 shadow-lg">
+            Atur posisimu di dalam kotak, lalu sentuh tombol untuk mulai!
+          </span>
         </div>
       )}
 
       {/* Top Header: Pose Counter Badge */}
-      <div className="absolute top-8 left-8 flex items-center gap-3 bg-black/70 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 shadow-2xl z-20">
+      <div className="absolute top-8 left-8 flex items-center gap-3 bg-black/80 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 shadow-2xl z-20">
         <div className="w-3.5 h-3.5 rounded-full bg-rose-500 animate-ping" />
         <Camera className="w-6 h-6 text-pink-400" />
         <span className="text-xl font-display font-extrabold text-white">
@@ -135,7 +134,7 @@ export const LiveViewScreen: React.FC<LiveViewScreenProps> = ({
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
           <div
             key={countdown}
-            className="w-48 h-48 rounded-full bg-black/60 backdrop-blur-xl border-4 border-pink-500 flex items-center justify-center shadow-2xl animate-ping"
+            className="w-48 h-48 rounded-full bg-black/70 backdrop-blur-xl border-4 border-pink-500 flex items-center justify-center shadow-2xl animate-ping"
             style={{ animationDuration: '0.9s' }}
           >
             <span className="text-8xl font-display font-black text-white drop-shadow-2xl">

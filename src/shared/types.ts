@@ -39,6 +39,7 @@ export interface PhotoSession {
   templateId: string;
   poseCount: number;
   currentPose: number; // 0-based
+  activeSlot?: SlotBox;
   capturedPhotos: string[]; // absolute paths to raw high-res JPEGs
   retakeCountForCurrentPose: number;
   filter: ColorFilter;
