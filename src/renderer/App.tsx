@@ -55,7 +55,13 @@ export const App: React.FC = () => {
       try {
         const blob = new Blob([frameBuffer], { type: 'image/jpeg' });
         const bitmap = await createImageBitmap(blob);
-        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bitmap, 0, 0);
         bitmap.close();
       } catch (err) {
         // frame render error
@@ -142,6 +148,13 @@ export const App: React.FC = () => {
           totalPoses={session?.poseCount || 3}
           countdown={countdown}
           isFlashing={isFlashing}
+          state={state}
+          activeSlot={
+            templates
+              .find((t) => t.id === (session?.templateId || '1'))
+              ?.leftSlots.find((s) => s.poseIndex === (session?.currentPose || 0)) ||
+            templates.find((t) => t.id === (session?.templateId || '1'))?.leftSlots[0]
+          }
         />
       )}
 

@@ -74,9 +74,14 @@ export class SessionManager {
   }
 
   public async proceedToLiveView(): Promise<void> {
+    await this.enterLiveViewAndCountdown();
+  }
+
+  private async enterLiveViewAndCountdown(): Promise<void> {
     if (!this.currentSession) return;
 
     this.currentSession.state = 'LIVEVIEW_PREP';
+    this.countdownVal = 0;
     this.broadcastState();
 
     // Start Live View stream
@@ -84,8 +89,13 @@ export class SessionManager {
       this.io.emit('camera:frame', frameBuffer);
     });
 
-    // Start countdown for pose
-    this.startCountdown();
+    // 2.5 second breather: camera mirror flips up, sensor stabilizes, and user gets ready
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    // Ensure session is still active and in LIVEVIEW_PREP before starting countdown
+    if (this.currentSession && this.currentSession.state === 'LIVEVIEW_PREP') {
+      this.startCountdown();
+    }
   }
 
   public startCountdown(): void {
@@ -142,14 +152,7 @@ export class SessionManager {
   public async retakeCurrentPose(): Promise<void> {
     if (!this.currentSession || this.currentSession.state !== 'REVIEW_SHOT') return;
     this.currentSession.retakeCountForCurrentPose++;
-    this.currentSession.state = 'LIVEVIEW_PREP';
-    this.broadcastState();
-
-    // Re-enter Live View & Countdown for the same pose
-    await this.cameraManager.startLiveView((frameBuffer) => {
-      this.io.emit('camera:frame', frameBuffer);
-    });
-    this.startCountdown();
+    await this.enterLiveViewAndCountdown();
   }
 
   public async acceptPoseAndContinue(): Promise<void> {
@@ -160,13 +163,7 @@ export class SessionManager {
       // More poses remaining
       this.currentSession.currentPose = nextPose;
       this.currentSession.retakeCountForCurrentPose = 0;
-      this.currentSession.state = 'LIVEVIEW_PREP';
-      this.broadcastState();
-
-      await this.cameraManager.startLiveView((frameBuffer) => {
-        this.io.emit('camera:frame', frameBuffer);
-      });
-      this.startCountdown();
+      await this.enterLiveViewAndCountdown();
     } else {
       // All poses captured! Transition to Processing
       await this.processSessionResult();
