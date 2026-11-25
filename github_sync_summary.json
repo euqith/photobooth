@@ -1,0 +1,135 @@
+[
+  {
+    "epic_num": 3,
+    "epic_title": "[EPIC 1] Project Foundation & Electron Kiosk Architecture",
+    "epic_url": "https://github.com/euqith/photobooth/issues/3",
+    "milestone": "Epic 1: Foundation & Electron Kiosk",
+    "stories": [
+      [
+        1,
+        "[STORY 1.1] Electron + React + Node.js/Socket.io Monorepo Scaffolding",
+        "https://github.com/euqith/photobooth/issues/1"
+      ],
+      [
+        2,
+        "[STORY 1.2] Touchscreen Kiosk Hardening & Crash Recovery (Windows AIO i5 Gen 6)",
+        "https://github.com/euqith/photobooth/issues/2"
+      ]
+    ]
+  },
+  {
+    "epic_num": 8,
+    "epic_title": "[EPIC 2] Cross-Platform DSLR Hardware Abstraction Layer (HAL)",
+    "epic_url": "https://github.com/euqith/photobooth/issues/8",
+    "milestone": "Epic 2: Cross-Platform DSLR HAL",
+    "stories": [
+      [
+        4,
+        "[STORY 2.1] Camera HAL Interface, Worker Thread & Thermal State Machine",
+        "https://github.com/euqith/photobooth/issues/4"
+      ],
+      [
+        5,
+        "[STORY 2.2] macOS Dev/Test Driver: gphoto2 Adapter for Canon EOS 6D Mark I",
+        "https://github.com/euqith/photobooth/issues/5"
+      ],
+      [
+        6,
+        "[STORY 2.3] Windows Test/Prod Driver: Canon EDSDK Adapter for EOS 6D Mk I & EOS 70D",
+        "https://github.com/euqith/photobooth/issues/6"
+      ],
+      [
+        7,
+        "[STORY 2.4] Mock & Webcam Camera Provider for Hardware-Free UI Development",
+        "https://github.com/euqith/photobooth/issues/7"
+      ]
+    ]
+  },
+  {
+    "epic_num": 12,
+    "epic_title": "[EPIC 3] Automated Chroma-Key Template Pre-Processor & Compositing Engine",
+    "epic_url": "https://github.com/euqith/photobooth/issues/12",
+    "milestone": "Epic 3: Template & Image Engine",
+    "stories": [
+      [
+        9,
+        "[STORY 3.1] Chroma-Key Green (#00FF00) Alpha Masker & Slot Coordinate Auto-Detector",
+        "https://github.com/euqith/photobooth/issues/9"
+      ],
+      [
+        10,
+        "[STORY 3.2] High-Speed 2-Layer Photo Collage Compositor & Filter Pipeline (Sharp)",
+        "https://github.com/euqith/photobooth/issues/10"
+      ],
+      [
+        11,
+        "[STORY 3.3] Parallel GIF & Boomerang Video Generator (FFmpeg)",
+        "https://github.com/euqith/photobooth/issues/11"
+      ]
+    ]
+  },
+  {
+    "epic_num": 17,
+    "epic_title": "[EPIC 4] Touchscreen User Interface & Interactive Experience",
+    "epic_url": "https://github.com/euqith/photobooth/issues/17",
+    "milestone": "Epic 4: Touchscreen Kiosk UI",
+    "stories": [
+      [
+        13,
+        "[STORY 4.1] Attract / Splash Screen using 'Desain tanpa judul.mp4'",
+        "https://github.com/euqith/photobooth/issues/13"
+      ],
+      [
+        14,
+        "[STORY 4.2] Interactive Template Grid & Pose Layout Selector (20 Templates)",
+        "https://github.com/euqith/photobooth/issues/14"
+      ],
+      [
+        15,
+        "[STORY 4.3] Mirrored Live View Canvas, Countdown, White Flash & Retake UI",
+        "https://github.com/euqith/photobooth/issues/15"
+      ],
+      [
+        16,
+        "[STORY 4.4] Processing Screen ('Desain tanpa judul (1).mp4'), Filter Preview & Result UI",
+        "https://github.com/euqith/photobooth/issues/16"
+      ]
+    ]
+  },
+  {
+    "epic_num": 20,
+    "epic_title": "[EPIC 5] Silent Printing & Offline/Cloud QR Digital Sharing",
+    "epic_url": "https://github.com/euqith/photobooth/issues/20",
+    "milestone": "Epic 5: Silent Printing & QR Share",
+    "stories": [
+      [
+        18,
+        "[STORY 5.1] Cross-Platform Silent Print Spooler & 2x6 Strip Auto-Cut Support",
+        "https://github.com/euqith/photobooth/issues/18"
+      ],
+      [
+        19,
+        "[STORY 5.2] Local Wi-Fi QR Code Download Portal & Optional Cloud Sync",
+        "https://github.com/euqith/photobooth/issues/19"
+      ]
+    ]
+  },
+  {
+    "epic_num": 23,
+    "epic_title": "[EPIC 6] Operator Admin Dashboard, Telemetry & Windows Production Deployment",
+    "epic_url": "https://github.com/euqith/photobooth/issues/23",
+    "milestone": "Epic 6: Admin, Telemetry & Prod Deploy",
+    "stories": [
+      [
+        21,
+        "[STORY 6.1] PIN-Protected Operator Admin Dashboard & Session Reprint Gallery",
+        "https://github.com/euqith/photobooth/issues/21"
+      ],
+      [
+        22,
+        "[STORY 6.2] Production Packaging & Windows AIO (i5 Gen 6 + Canon 70D) Provisioning Scripts",
+        "https://github.com/euqith/photobooth/issues/22"
+      ]
+    ]
+  }
+]
