@@ -1,0 +1,33 @@
+{
+  "countdownDuration": 5,
+  "reviewDuration": 3,
+  "allowRetake": true,
+  "maxRetakesPerPose": 1,
+  "maxPrintCopies": 2,
+  "autoPrint": false,
+  "adminPin": "1234",
+  "printerName": "Default_Photo_Printer",
+  "dryRunPrinter": true,
+  "cameraProvider": "gphoto2",
+  "payment": {
+    "mode": "paid",
+    "provider": "sandbox",
+    "environment": "sandbox",
+    "sessionPrice": 35000,
+    "extraPrintPrice": 10000,
+    "qrisTimeoutSeconds": 300,
+    "verificationMethod": "polling",
+    "pollingIntervalMs": 2500,
+    "midtransServerKey": "",
+    "midtransClientKey": "",
+    "midtransMerchantId": "",
+    "xenditApiKey": "",
+    "cloudRelayUrl": "",
+    "webhookSecret": "",
+    "activeVouchers": [
+      "VIPGUEST",
+      "CASH01",
+      "PROMO2026"
+    ]
+  }
+}

@@ -54,6 +54,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeProvider, setActiveProvider] = useState<'mock' | 'gphoto2'>('mock');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [testShotResult, setTestShotResult] = useState<string | null>(null);
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
+  const [cameraSwitchMessage, setCameraSwitchMessage] = useState<string | null>(null);
 
   // Settings State
   const [settings, setSettings] = useState<ServerSettings | null>(null);
@@ -89,13 +91,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .then((data) => {
         if (data.camera) {
           setCameraStatus(data.camera);
-          if (data.camera.model?.includes('Mock')) {
+          if (data.camera.provider) {
+            setActiveProvider(data.camera.provider);
+          } else if (data.camera.model?.toLowerCase().includes('mock')) {
             setActiveProvider('mock');
-          } else if (data.camera.model?.includes('gphoto2')) {
+          } else if (data.camera.model?.toLowerCase().includes('gphoto2') || data.camera.model?.toLowerCase().includes('canon')) {
             setActiveProvider('gphoto2');
           }
         }
         if (data.printer) setPrinterStatus(data.printer);
+        if (data.settings) {
+          setSettings((prev) => prev || data.settings);
+        }
       })
       .catch(() => {})
       .finally(() => setIsRefreshing(false));
@@ -105,8 +112,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetch('/api/admin/settings')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.settings) {
-          setSettings(data.settings);
+        const s = data.settings || (data.payment ? data : null);
+        if (s) {
+          setSettings(s);
         }
       })
       .catch((err) => console.error('Gagal mengambil pengaturan:', err));
@@ -269,6 +277,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .catch((err) => setTestShotResult(`Error: ${err.message}`));
   };
 
+  const handleSwitchCameraProvider = async (provider: 'mock' | 'gphoto2') => {
+    setActiveProvider(provider);
+    setIsSwitchingCamera(true);
+    setCameraSwitchMessage(`Menghubungkan ke ${provider === 'gphoto2' ? 'Canon gphoto2' : 'Mock Camera'}...`);
+    onSetCameraProvider(provider);
+
+    try {
+      const res = await fetch('/api/camera/provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+      const data = await res.json();
+      if (data.health) {
+        setCameraStatus(data.health);
+        if (data.health.provider) {
+          setActiveProvider(data.health.provider);
+        }
+        setCameraSwitchMessage(
+          provider === 'gphoto2'
+            ? data.health.connected
+              ? 'Canon EOS 6D berhasil terhubung via gphoto2!'
+              : 'Provider gphoto2 aktif. Kamera belum terdeteksi (pastikan kabel USB terhubung & kamera menyala).'
+            : 'Mock Camera aktif (mode simulasi untuk development).'
+        );
+      }
+    } catch (err: any) {
+      setCameraSwitchMessage('Gagal mengubah provider kamera: ' + err.message);
+    } finally {
+      setIsSwitchingCamera(false);
+      setTimeout(() => setCameraSwitchMessage(null), 5000);
+    }
+  };
+
   const handleSimulateWebhook = async () => {
     try {
       const res = await fetch('/api/admin/test-webhook', { method: 'POST' });
@@ -399,7 +441,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Tab Body Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* TAB 1: PEMBAYARAN & WEBHOOK */}
-          {activeTab === 'payment' && settings && (
+          {activeTab === 'payment' && (
+            !settings ? (
+              <div className="p-16 flex flex-col items-center justify-center text-gray-400">
+                <div className="w-10 h-10 rounded-full border-4 border-pink-500 border-t-transparent animate-spin mb-4" />
+                <p className="text-sm font-semibold">Memuat Pengaturan Pembayaran & Webhook...</p>
+                <button
+                  type="button"
+                  onClick={fetchSettings}
+                  className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-pink-400 text-xs font-bold rounded-xl border border-pink-500/30 cursor-pointer"
+                >
+                  Muat Ulang Pengaturan
+                </button>
+              </div>
+            ) : (
             <div className="space-y-6">
               {settingsSavedMessage && (
                 <div className="p-4 bg-emerald-500/10 border border-emerald-500/40 rounded-2xl flex items-center gap-3 text-emerald-400 text-sm font-semibold animate-fade-in">
@@ -712,6 +767,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Webhook Configuration & URL Display Card */}
+              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-pink-400" />
+                    <span>URL Webhook Callback Gateway</span>
+                  </h3>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
+                    AKTIF & SIAP MENERIMA
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Salin URL ini ke dashboard Midtrans (Settings → Configuration → Payment Notification URL) atau Xendit (Settings → Callbacks) agar notifikasi pembayaran langsung masuk ke photobooth:
+                </p>
+                <div className="p-3 bg-gray-950 border border-gray-800 rounded-xl flex items-center justify-between gap-3">
+                  <span className="font-mono text-xs text-pink-400 select-all font-semibold truncate">
+                    {`http://${window.location.hostname || 'localhost'}:3000/api/payment/webhook`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`http://${window.location.hostname || 'localhost'}:3000/api/payment/webhook`);
+                      alert('URL Webhook berhasil disalin!');
+                    }}
+                    className="py-1 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white rounded-lg text-xs font-bold border border-gray-700 shrink-0 transition-all cursor-pointer"
+                  >
+                    Salin URL
+                  </button>
+                </div>
+              </div>
+
               {/* Voucher Management */}
               <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
                 <h3 className="text-sm font-black text-white flex items-center gap-2">
@@ -775,7 +861,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </div>
-          )}
+          ))}
 
           {/* TAB 2: TEMPLATE GRID MANAGER */}
           {activeTab === 'templates' && (
@@ -1069,26 +1155,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <button
-                    onClick={() => onSetCameraProvider('mock')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    onClick={() => handleSwitchCameraProvider('mock')}
+                    disabled={isSwitchingCamera}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                       activeProvider === 'mock'
                         ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
                         : 'bg-gray-800 text-gray-400 hover:text-white'
                     }`}
                   >
-                    Gunakan Mock Camera
+                    {isSwitchingCamera && activeProvider === 'mock' && (
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    )}
+                    <span>Gunakan Mock Camera</span>
                   </button>
                   <button
-                    onClick={() => onSetCameraProvider('gphoto2')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    onClick={() => handleSwitchCameraProvider('gphoto2')}
+                    disabled={isSwitchingCamera}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                       activeProvider === 'gphoto2'
                         ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
                         : 'bg-gray-800 text-gray-400 hover:text-white'
                     }`}
                   >
-                    Gunakan Canon gphoto2
+                    {isSwitchingCamera && activeProvider === 'gphoto2' && (
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    )}
+                    <span>Gunakan Canon gphoto2</span>
                   </button>
                 </div>
+
+                {cameraSwitchMessage && (
+                  <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl text-pink-300 text-xs font-semibold animate-fade-in flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-pink-400" />
+                    <span>{cameraSwitchMessage}</span>
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-2">
                   <button

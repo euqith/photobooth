@@ -36,32 +36,42 @@ export class CameraManager {
     return CameraManager.instance;
   }
 
-  public setProvider(type: 'mock' | 'gphoto2' | 'edsdk'): void {
-    if (this.provider.name === type) return;
-    this.provider.dispose().catch(() => {});
+  public async setProvider(type: 'mock' | 'gphoto2' | 'edsdk'): Promise<CameraHealth & { provider: 'mock' | 'gphoto2' | 'edsdk' }> {
+    if (this.provider.name !== type) {
+      await this.provider.dispose().catch(() => {});
 
-    if (type === 'mock') {
-      this.provider = new MockCameraProvider();
-    } else if (type === 'gphoto2') {
-      this.provider = new MacGphotoProvider();
-    } else {
-      this.provider = new MockCameraProvider();
+      if (type === 'mock') {
+        this.provider = new MockCameraProvider();
+      } else if (type === 'gphoto2') {
+        this.provider = new MacGphotoProvider();
+      } else {
+        this.provider = new MockCameraProvider();
+      }
     }
+
+    const health = await this.provider.initialize();
+    return {
+      ...health,
+      provider: this.provider.name,
+    };
   }
 
-  public async initialize(): Promise<CameraHealth> {
+  public async initialize(): Promise<CameraHealth & { provider: 'mock' | 'gphoto2' | 'edsdk' }> {
     try {
       const health = await this.provider.initialize();
-      if (!health.connected && this.provider.name !== 'mock') {
-        console.warn(`Camera provider ${this.provider.name} not connected. Falling back to Mock.`);
-        this.provider = new MockCameraProvider();
-        return this.provider.initialize();
-      }
-      return health;
-    } catch (err) {
-      console.error('Camera init error, falling back to mock:', err);
-      this.provider = new MockCameraProvider();
-      return this.provider.initialize();
+      return {
+        ...health,
+        provider: this.provider.name,
+      };
+    } catch (err: any) {
+      console.error('Camera init error:', err);
+      return {
+        connected: false,
+        model: `${this.provider.name} error`,
+        isLiveViewActive: false,
+        lastError: err?.message || String(err),
+        provider: this.provider.name,
+      };
     }
   }
 
@@ -115,8 +125,12 @@ export class CameraManager {
     }
   }
 
-  public async getHealth(): Promise<CameraHealth> {
-    return this.provider.getHealth();
+  public async getHealth(): Promise<CameraHealth & { provider: 'mock' | 'gphoto2' | 'edsdk' }> {
+    const health = await this.provider.getHealth();
+    return {
+      ...health,
+      provider: this.provider.name,
+    };
   }
 
   public async resetConnection(): Promise<void> {

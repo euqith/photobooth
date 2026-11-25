@@ -79,7 +79,10 @@ app.get('/api/health', async (req, res) => {
 
 // Settings API
 app.get('/api/admin/settings', (req, res) => {
-  res.json(settingsManager.getSettings());
+  res.json({
+    success: true,
+    settings: settingsManager.getSettings(),
+  });
 });
 
 app.post('/api/admin/settings', (req, res) => {
@@ -87,10 +90,39 @@ app.post('/api/admin/settings', (req, res) => {
   res.json({ success: true, settings: updated });
 });
 
+// Camera Provider Switcher API
+app.post('/api/camera/provider', async (req, res) => {
+  try {
+    const { provider } = req.body;
+    if (!provider || !['mock', 'gphoto2', 'edsdk'].includes(provider)) {
+      return res.status(400).json({ success: false, error: 'Invalid camera provider' });
+    }
+    const health = await cameraManager.setProvider(provider);
+    settingsManager.updateSettings({ cameraProvider: provider });
+    io.emit('camera:status', health);
+    res.json({ success: true, health, provider });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to switch camera provider' });
+  }
+});
+
 // Transactions Ledger & Revenue API
 app.get('/api/admin/transactions', (req, res) => {
+  if (req.query.export === 'csv') {
+    const txs = paymentManager.getAllTransactions();
+    let csv = 'Order ID,Session ID,Amount,Provider,Status,Created At,Paid At\n';
+    txs.forEach((t) => {
+      csv += `"${t.orderId}","${t.sessionId}",${t.amount},"${t.provider}","${t.status}","${new Date(t.expiresAt - 5*60000).toISOString()}","${t.paidAt ? new Date(t.paidAt).toISOString() : ''}"\n`;
+    });
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="photobooth_transactions.csv"');
+    return res.send(csv);
+  }
+
   res.json({
+    success: true,
     transactions: paymentManager.getAllTransactions(),
+    stats: paymentManager.getDailyRevenue(),
     daily: paymentManager.getDailyRevenue(),
   });
 });
@@ -431,9 +463,15 @@ io.on('connection', (socket) => {
   });
 
   // Admin triggers
-  socket.on('admin:setCameraProvider', (provider: 'mock' | 'gphoto2' | 'edsdk') => {
-    cameraManager.setProvider(provider);
-    socket.emit('admin:cameraStatus', { provider });
+  socket.on('admin:setCameraProvider', async (provider: 'mock' | 'gphoto2' | 'edsdk') => {
+    try {
+      const health = await cameraManager.setProvider(provider);
+      settingsManager.updateSettings({ cameraProvider: provider });
+      io.emit('camera:status', health);
+      socket.emit('admin:cameraStatus', { provider, health });
+    } catch (err: any) {
+      socket.emit('admin:cameraStatus', { error: err?.message || 'Failed to switch camera provider' });
+    }
   });
 
   socket.on('admin:testPrint', async () => {
