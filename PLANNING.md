@@ -545,9 +545,92 @@ stateDiagram-v2
 
 ---
 
-### 6.4 Phase 2 Agile Roadmap: Epics, User Stories, and Tasks (Synced to GitHub)
+### 6.4 Comprehensive Admin Control Center Architecture (Payment/Webhook Config, Template Grid Uploader & Operations)
 
-Untuk mengeksekusi **Phase 2**, ditambahkan **2 Epic Baru (Epic 7 & Epic 8)** beserta **6 User Stories** ke dalam backlog project:
+Untuk mendukung operasional mandiri tanpa perlu menyentuh kode atau terminal (`.env` / CLI), **Operator Admin Dashboard** (diakses melalui *Hidden Hotspot* tap 5x + PIN) dirancang ulang menjadi **4 Tab Manajemen Terpadu**:
+
+```mermaid
+flowchart LR
+    Admin["PIN-Protected Admin Dashboard\n(Tap 5x Corner + Operator PIN)"]
+
+    subgraph Tab1["1. Payment Gateway & Webhook Settings"]
+        P_Mode["Mode Operasi:\nFree Event vs Paid Self-Service QRIS"]
+        P_Prov["Provider & Credentials:\nSandbox / Midtrans / Xendit\n(Server Key, Client Key, Merchant ID)"]
+        P_Hook["Webhook & NAT Verification:\nHTTP Polling Interval (2.5s) +\nCloud Webhook Relay URL & Secret +\n1-Click API & Webhook Test"]
+        P_Price["Pricing & Voucher:\nHarga Sesi (Rp), Harga Extra Print,\nGenerator Kode Voucher & Cash PIN"]
+    end
+
+    subgraph Tab2["2. Template Grid & Media Manager"]
+        T_Up["Live Template Grid Uploader (.png):\nDrag & Drop 1333x1999 4R Design"]
+        T_Auto["On-the-Fly Chroma-Key Engine:\nAuto Green (#00FF00) to Alpha +\nAuto Bounding-Box Slot Detector"]
+        T_Preview["Visual Slot Inspector:\nPreview Detected L1..Ln & R1..Rn Slots,\nAuto Pose Count & Landscape/Portrait Ratio"]
+        T_Catalog["Catalog & Video Manager:\nEnable/Disable/Delete Templates,\nUpload Custom Attract/Loading .mp4"]
+    end
+
+    subgraph Tab3["3. Transactions, Gallery & Re-Print"]
+        G_Rev["Revenue Analytics:\nOmzet Hari Ini (Rp), Total Sesi Paid,\nVoucher Terpakai & Export CSV"]
+        G_Hist["Session & Payment History:\nStatus (PAID/EXPIRED), Preview Foto,\nTombol Re-Print & Pop-up Ulang QR"]
+    end
+
+    subgraph Tab4["4. Hardware & Kiosk System"]
+        H_Cam["DSLR Diagnostics:\nProvider (EDSDK/gphoto2/Mock),\nTest Shot, Force Mirror Down & USB Reset"]
+        H_Prn["Silent Printer Spooler:\nPilih Printer Queue (2x6 Cut / 4x6),\nReset Paper Counter & Dry-Run Mode"]
+        H_Sys["System & Security:\nUbah PIN Admin, Durasi Timer,\nExit Fullscreen Kiosk / Restart"]
+    end
+
+    Admin --> Tab1
+    Admin --> Tab2
+    Admin --> Tab3
+    Admin --> Tab4
+```
+
+---
+
+#### Rincian Fitur Halaman Admin Baru:
+
+##### 1. Tab Payment Gateway, Webhook & Pricing Configuration
+Seluruh konfigurasi pembayaran disimpan secara persisten di `config/settings.json` (dengan enkripsi lokal untuk API Secret) dan langsung berlaku secara *hot-reload* tanpa merestart aplikasi:
+- **Operation Mode & Pricing**:
+  - Toggle instan: **`Free Event Mode`** (untuk sewa acara pernikahan/korporat tanpa bayar per sesi) vs **`Paid Self-Service Kiosk Mode`** (wajib scan QRIS sebelum foto).
+  - Pengaturan nominal: **Harga Paket Utama** (mis. `Rp 35.000`), **Harga Tambahan Cetak per Lembar** (mis. `Rp 10.000`), dan **Durasi Timeout QRIS** (default `300 detik / 5 menit`).
+- **Payment Gateway Credentials (`Midtrans` / `Xendit` / `Sandbox Simulator`)**:
+  - Pilihan Environment: `Sandbox (Testing)` atau `Production (Live)`.
+  - Input terproteksi (Show/Hide): `Server Key / Secret Key`, `Client Key`, dan `Merchant ID`.
+- **Webhook & NAT Verification Settings**:
+  - Pilihan metode verifikasi:
+    1. **`Adaptive HTTP Polling (Default - Tanpa Setup Cloud)`**: Mengatur interval polling (default `2500 ms`).
+    2. **`Hybrid Cloud Webhook Relay + Polling Fallback`**:
+       - Input **Cloud Relay URL** (mis. URL Firebase Realtime Database / Cloudflare Worker / Custom Webhook Relay) dan **Webhook Verification Token / Secret**.
+       - **Webhook URL & Signature Helper**: Menampilkan URL endpoint webhook yang siap di-*copy-paste* ke dashboard Midtrans (`Payment Notification URL`) atau Xendit (`Callback URL`) beserta verifikasi tanda tangan kriptografis (`SHA-512` untuk Midtrans / `x-callback-token` untuk Xendit).
+       - Tombol **"Test Koneksi API & Simulasi Webhook"**: Memvalidasi apakah `Server Key` valid dan melakukan ping uji coba ke Payment Gateway maupun Cloud Relay.
+- **Voucher & Cash Bypass Manager**:
+  - Membuat kode voucher sekali pakai atau kuota tertentu (mis. `VIPGUEST`, `CASH01`) sehingga operator/kasir tetap bisa melayani tamu yang membayar uang tunai di lokasi.
+
+##### 2. Tab Template Grid Uploader & Automated Slot Inspector
+Memungkinkan desainer atau operator menambahkan desain frame kolase foto baru kapan saja langsung dari layar Admin:
+- **Upload Template Baru (`.png`)**:
+  - Mendukung unggah file PNG berukuran `1333 x 1999` piksel (baik yang menggunakan warna **Chroma-Key Green `#00FF00`** pada kotak slot foto, maupun PNG yang sudah memiliki lubang transparan / *alpha channel*).
+- **Real-Time Chroma-Key Pre-Processor & Slot Auto-Detection**:
+  - Begitu file diunggah via endpoint `POST /api/admin/templates/upload`, backend langsung menjalankan pipeline `sharp` secara *on-the-fly*:
+    1. Menghapus piksel hijau Chroma-Key menjadi alpha transparan dengan *edge anti-aliasing* (dilengkapi slider *Green Tolerance* jika desain menggunakan hijau bertekstur).
+    2. Mendeteksi koordinat bounding box seluruh slot di strip kiri (`L1..Ln`) dan strip kanan (`R1..Rn`).
+    3. Menghitung secara otomatis **Jumlah Pose** (mis. 2 Pose, 3 Pose, 4 Pose) serta **Orientasi Rasio Slot** (`Landscape`, `Portrait`, atau `Persegi`).
+- **Interactive Visual Slot Inspector**:
+  - Sebelum disimpan ke katalog aktif, Admin menampilkan *Live Preview* dari template yang baru diunggah lengkap dengan garis kotak deteksi slot (`Slot 1: 576x420 - Landscape`) dan simulasi contoh foto di dalamnya, sehingga operator yakin 100% posisi potongan foto dan stiker overlay sudah presisi.
+- **Catalog & Video Loop Management**:
+  - Mengubah nama/judul template, mengaktifkan/menonaktifkan template tertentu dari halaman depan tamu (`isActive` toggle), menghapus template lama, serta mengunggah video `.mp4` baru untuk *Attract Screen* dan *Processing Screen*.
+
+##### 3. Tab Transaction Ledger, Session Gallery & Re-Print
+- **Dashboard Pendapatan Harian**: Menampilkan kartu ringkasan Omzet Hari Ini (`Rp`), Jumlah Transaksi QRIS Sukses, Jumlah Pemakaian Voucher, dan tombol **Export CSV Laporan Keuangan**.
+- **Riwayat Sesi & Cetak Ulang Instan (*Re-Print* & *Re-Share*)**:
+  - Daftar seluruh sesi pemotretan beserta thumbnail hasil kolase dan status pembayaran (`PAID`, `VOUCHER`, `FREE`, `EXPIRED`).
+  - Tombol **`[🖨️ Cetak Ulang / Re-Print]`** jika kertas printer sempat macet, serta tombol **`[📱 Tampilkan QR Download]`** jika tamu lupa memindai QR Code mereka setelah sesi berakhir.
+
+---
+
+### 6.5 Phase 2 Agile Roadmap: Epics, User Stories, and Tasks (Synced to GitHub)
+
+Untuk mengeksekusi **Phase 2** beserta **Comprehensive Admin Control Center**, ditambahkan **3 Epic Baru (Epic 7, Epic 8, & Epic 9)** beserta **9 User Stories** ke dalam backlog project:
 
 #### Epic 7: Dynamic QRIS Payment Gateway Engine & Hybrid Verification (NAT-Traversal)
 - **Story 7.1**: Payment Gateway Abstraction Layer (`IPaymentProvider`: Midtrans, Xendit & Mock Sandbox)
@@ -556,13 +639,13 @@ Untuk mengeksekusi **Phase 2**, ditambahkan **2 Epic Baru (Epic 7 & Epic 8)** be
   - Implementasikan **Sandbox / Mock QRIS Provider** yang menghasilkan QR Code lokal instan dan menyediakan endpoint simulasi bayar (`POST /api/payment/simulate-pay`) untuk pengujian tanpa biaya.
 - **Story 7.2**: Hybrid NAT-Traversal Payment Verification Engine (Adaptive HTTP Poller + Optional Cloud Relay)
   - Implementasikan **Adaptive HTTP Polling Worker** di Node.js yang mengecek status transaksi setiap 2.5 detik hanya selama state `AWAITING_PAYMENT` aktif, lengkap dengan *exponential backoff* saat koneksi internet fluktuatif.
-  - Sediakan hook opsional **Cloud Webhook Relay Listener** (SSE / Firebase Realtime Database WebSocket client) yang dapat diaktifkan via konfigurasi `.env` untuk sinkronisasi instan multi-cabang.
+  - Sediakan hook opsional **Cloud Webhook Relay Listener** (SSE / Firebase Realtime Database WebSocket client) yang dapat diaktifkan via Admin Panel untuk sinkronisasi instan multi-cabang.
   - Terapkan **Idempotent Payment Settlement Lock** agar konfirmasi ganda tidak pernah memicu sesi ganda.
 - **Story 7.3**: Pre-Payment Hardware Health Gate & Local Transaction Ledger
   - Tambahkan *Pre-Flight Check* sebelum membuat QRIS: pastikan kamera DSLR berstatus `Connected` dan printer siap.
   - Simpan seluruh log transaksi (`orderId`, `sessionId`, `amount`, `provider`, `status`: `PENDING` | `PAID` | `EXPIRED` | `CANCELLED` | `REFUND_VOUCHER`, `paidAt`) ke penyimpanan lokal untuk audit kasir/operator.
 
-#### Epic 8: Self-Service Payment UI, Thermal-Safe FSM & Commercial Kiosk Controls
+#### Epic 8: Self-Service Payment UI & Thermal-Safe DSLR FSM Integration
 - **Story 8.1**: Touchscreen QRIS Payment Screen, 5-Minute Expiry Timer & Voucher Bypass
   - Bangun komponen `PaymentQrisScreen.tsx` yang menampilkan gambar QRIS dinamis, nominal harga Rupiah, logo dukungan pembayaran (QRIS / GoPay / OVO / DANA / BCA / Mandiri), *progress bar* waktu mundur 5 menit, dan tombol Batal.
   - Tambahkan fitur input **Kode Voucher / PIN Bypass Operator** bagi tamu VIP atau pembayaran tunai di tempat.
@@ -572,4 +655,17 @@ Untuk mengeksekusi **Phase 2**, ditambahkan **2 Epic Baru (Epic 7 & Epic 8)** be
   - Pastikan Live View DSLR tetap **MATI (`EVF OFF`)** selama di layar `AWAITING_PAYMENT`, dan hanya menyala otomatis tepat setelah event `PAYMENT_SUCCESS` tervalidasi.
   - Implementasikan *Wake-Up Auto-Retry & Fail-Safe Voucher Generator* apabila kamera gagal bangun setelah pembayaran berhasil.
 - **Story 8.3**: Commercial Admin Settings (Free vs Paid Mode, Pricing & Revenue Report)
-  - Tambahkan panel kontrol pembayaran di `AdminDashboard.tsx`: toggle antara **Free Event Mode** vs **Paid Self-Service Kiosk Mode**, pengaturan harga per sesi (mis. `Rp 35.000`), pilihan provider (`Sandbox Mock`, `Midtrans Live`, `Xendit Live`), serta ringkasan total transaksi sukses & pendapatan harian.
+  - Tambahkan panel kontrol mode komersial: toggle antara **Free Event Mode** vs **Paid Self-Service Kiosk Mode**, pengaturan harga per sesi, serta laporan transaksi harian.
+
+#### Epic 9: Admin Control Center — Webhook/Payment Configurator, Live Template Grid Uploader & Session Manager
+- **Story 9.1**: Admin Payment Gateway, Webhook Relay & Voucher Configuration UI
+  - Bangun tab **Payment & Webhook Settings** di `AdminDashboard.tsx` untuk mengatur API Key (`Midtrans` / `Xendit` / `Sandbox`), mode verifikasi (`HTTP Polling` vs `Cloud Webhook Relay`), URL/Token Webhook Relay, interval polling, serta tombol **"Test Connection & Simulate Webhook"**.
+  - Sediakan **Voucher & Cash Bypass Generator** untuk membuat dan mengelola kode voucher di tempat.
+  - Simpan konfigurasi secara aman dan persisten di `config/settings.json` dengan *hot-reload* tanpa restart server.
+- **Story 9.2**: Live Template Grid Uploader & Automated Chroma-Key Slot Inspector
+  - Buat endpoint `POST /api/admin/templates/upload` dan UI **Template Grid Uploader** di Admin Dashboard untuk mengunggah file desain `.png` baru.
+  - Jalankan *On-the-Fly Chroma-Key Green (`#00FF00`) Alpha Masking & Connected-Component Slot Detection* saat gambar diunggah, lalu tampilkan **Visual Slot Inspector** (menampilkan bounding box tiap slot, jumlah pose otomatis, dan orientasi `Landscape`/`Portrait`).
+  - Tambahkan fitur aktif/nonaktifkan template, ubah judul, hapus template, serta unggah video `.mp4` custom untuk layar Attract & Processing.
+- **Story 9.3**: Admin Session Gallery, Financial Ledger Export & 1-Click Re-Print / Re-QR
+  - Bangun tab **Transactions & Session Gallery** di Admin Dashboard yang menampilkan riwayat sesi foto beserta status pembayarannya.
+  - Sediakan tombol **1-Click Re-Print** (cetak ulang sesi sebelumnya) dan **Show QR Download** (menampilkan kembali QR Code sesi sebelumnya), serta ekspor laporan transaksi ke CSV.
