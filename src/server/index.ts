@@ -66,6 +66,23 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
+app.post('/api/camera/test-shot', async (req, res) => {
+  try {
+    const testDir = path.resolve(__dirname, '../../output');
+    fs.mkdirSync(testDir, { recursive: true });
+    const testPath = path.join(testDir, 'test_shot.jpg');
+    const result = await cameraManager.capturePhoto(testPath);
+    res.json({
+      success: true,
+      url: `/output/test_shot.jpg?t=${Date.now()}`,
+      timeMs: result.captureTimeMs,
+    });
+  } catch (err: any) {
+    console.error('Test shot API error:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Capture failed' });
+  }
+});
+
 app.get('/api/templates', (req, res) => {
   res.json(TemplateCompositor.getAllTemplates());
 });

@@ -215,20 +215,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Test Shot Button */}
             <div className="mt-4">
               <button
-                onClick={() => {
-                  if (onTestShot) {
-                    onTestShot();
-                    setTestShotResult('Mengambil foto uji coba...');
-                    setTimeout(() => setTestShotResult('Foto uji coba berhasil diambil!'), 1500);
+                onClick={async () => {
+                  setTestShotResult('Memproses jepretan kamera...');
+                  try {
+                    const res = await fetch('/api/camera/test-shot', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                      setTestShotResult(`✅ Jepretan berhasil! (${data.timeMs}ms)`);
+                    } else {
+                      setTestShotResult(`❌ Gagal: ${data.error}`);
+                    }
+                  } catch (err: any) {
+                    setTestShotResult(`❌ Error koneksi: ${err.message}`);
                   }
                 }}
-                className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg shadow-pink-500/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
               >
-                <Camera className="w-4 h-4 text-pink-400" />
+                <Camera className="w-4 h-4 text-white" />
                 <span>Jepret Uji Coba (Test Shot)</span>
               </button>
               {testShotResult && (
-                <p className="text-[11px] text-green-400 font-mono text-center mt-2">{testShotResult}</p>
+                <div className="mt-2.5 p-2 bg-gray-800 rounded-lg text-center">
+                  <p className="text-xs font-semibold text-white">{testShotResult}</p>
+                </div>
               )}
             </div>
           </div>

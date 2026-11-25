@@ -6,7 +6,7 @@
   "scripts": {
     "build:templates": "tsx scripts/preprocess_templates.ts",
     "build:renderer": "vite build",
-    "dev:server": "tsx src/server/index.ts",
+    "dev:server": "tsx watch src/server/index.ts",
     "dev:renderer": "vite",
     "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:renderer\"",
     "start": "electron dist/main/index.js",
