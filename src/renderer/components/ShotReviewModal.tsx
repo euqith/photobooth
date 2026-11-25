@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RotateCcw, Check, Sparkles } from 'lucide-react';
 
 interface ShotReviewModalProps {
@@ -19,21 +19,48 @@ export const ShotReviewModal: React.FC<ShotReviewModalProps> = ({
   onAccept,
 }) => {
   const [autoSeconds, setAutoSeconds] = useState(4);
+  const onAcceptRef = useRef(onAccept);
+  const hasTriggeredRef = useRef(false);
 
-  // Auto accept after 4 seconds
   useEffect(() => {
+    onAcceptRef.current = onAccept;
+  }, [onAccept]);
+
+  // Auto accept after 4 seconds (safe against StrictMode double-invoke & re-renders)
+  useEffect(() => {
+    setAutoSeconds(4);
+    hasTriggeredRef.current = false;
+
     const timer = setInterval(() => {
       setAutoSeconds((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          onAccept();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [onAccept]);
+  }, [photoPath, currentPose]);
+
+  useEffect(() => {
+    if (autoSeconds === 0 && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      onAcceptRef.current();
+    }
+  }, [autoSeconds]);
+
+  const handleManualAccept = () => {
+    if (hasTriggeredRef.current) return;
+    hasTriggeredRef.current = true;
+    onAccept();
+  };
+
+  const handleManualRetake = () => {
+    if (hasTriggeredRef.current) return;
+    hasTriggeredRef.current = true;
+    onRetake();
+  };
 
   // Transform local path to URL
   const photoUrl = photoPath ? `/output/sessions/${photoPath.split('/sessions/')[1]}` : '';
@@ -66,7 +93,7 @@ export const ShotReviewModal: React.FC<ShotReviewModalProps> = ({
       <div className="flex items-center gap-6 pb-6 w-full max-w-md">
         {retakeCount === 0 && (
           <button
-            onClick={onRetake}
+            onClick={handleManualRetake}
             className="flex-1 py-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
             <RotateCcw className="w-5 h-5 text-yellow-400" />
@@ -75,7 +102,7 @@ export const ShotReviewModal: React.FC<ShotReviewModalProps> = ({
         )}
 
         <button
-          onClick={onAccept}
+          onClick={handleManualAccept}
           className="flex-1 py-4 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-2xl font-display font-bold text-xl shadow-xl shadow-pink-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           <Check className="w-6 h-6 stroke-[3]" />
