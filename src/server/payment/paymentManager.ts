@@ -163,6 +163,64 @@ export class PaymentManager {
     return false;
   }
 
+  public async simulateMidtransQrPayment(qrCodeUrl: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const scanRes = await fetch('https://simulator.sandbox.midtrans.com/v2/qris/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'qrCodeUrl=' + encodeURIComponent(qrCodeUrl),
+      });
+      const scanHtml = await scanRes.text();
+      const formMatch = scanHtml.match(/<form[^>]*action=\"([^\"]+)\"[^>]*method=\"post\"([\s\S]*?)<\/form>/);
+      if (!formMatch) {
+        throw new Error('Gagal membaca form scan simulator Midtrans. Pastikan URL QRIS valid.');
+      }
+      const action = formMatch[1];
+      const formBody = formMatch[2];
+      const inputMatches = [...formBody.matchAll(/<input\s+name=\"([^\"]+)\"\s+type=\"hidden\"\s+value=\"([^\"]*)\"/g)];
+      const params = new URLSearchParams();
+      for (const m of inputMatches) {
+        params.set(m[1], this.unescapeHtml(m[2]));
+      }
+      params.set('issuer', 'gopay');
+
+      const payUrl = new URL(action, 'https://simulator.sandbox.midtrans.com/v2/qris/payment').toString();
+      const payRes = await fetch(payUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+      const payHtml = await payRes.text();
+      const isPaid = payHtml.includes('PAID') || payHtml.includes('Status PAID');
+
+      if (this.currentTransaction) {
+        const status = await this.getProvider('midtrans').checkStatus(this.currentTransaction.orderId);
+        if (status === 'PAID') {
+          this.settlePayment(this.currentTransaction.orderId);
+        }
+      }
+
+      return {
+        success: isPaid,
+        message: isPaid
+          ? 'Sukses! Transaksi berhasil diselesaikan di Midtrans Sandbox (Status: PAID).'
+          : 'Transaksi selesai dikirim ke simulator Midtrans.',
+      };
+    } catch (err: any) {
+      console.error('[PaymentManager] Error in simulateMidtransQrPayment:', err);
+      throw err;
+    }
+  }
+
+  private unescapeHtml(str: string): string {
+    return str
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'");
+  }
+
   public cancelCurrentTransaction(): void {
     if (this.currentTransaction && this.currentTransaction.status === 'PENDING') {
       const provider = this.getProvider(this.currentTransaction.provider);

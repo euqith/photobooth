@@ -155,6 +155,21 @@ app.post('/api/admin/test-webhook', (req, res) => {
   res.json({ success: true, message: 'Test ping OK' });
 });
 
+// 1-Click Midtrans Sandbox Payment Simulator Endpoint
+app.post('/api/payment/simulate-midtrans-pay', async (req, res) => {
+  try {
+    const current = paymentManager.getCurrentTransaction();
+    const qrCodeUrl = req.body?.qrCodeUrl || current?.qrCodeUrl;
+    if (!qrCodeUrl) {
+      return res.status(400).json({ success: false, error: 'Tidak ada transaksi QRIS aktif untuk disimulasikan.' });
+    }
+    const result = await paymentManager.simulateMidtransQrPayment(qrCodeUrl);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Gagal simulasi pembayaran Midtrans' });
+  }
+});
+
 // Direct Test Midtrans API Key Endpoint
 app.post('/api/admin/test-midtrans', async (req, res) => {
   try {

@@ -1210,8 +1210,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </span>
                             </div>
 
-                            {/* Simulator URL Copy Button */}
+                            {/* Simulator URL Copy Button & 1-Click Simulation */}
                             <div className="pt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    const qrUrl = testMidtransResult.qrCodeUrl || testMidtransResult.qrString;
+                                    const res = await fetch(getApiUrl('/api/payment/simulate-midtrans-pay'), {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ qrCodeUrl: qrUrl }),
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                      alert('✅ ' + data.message);
+                                      fetchTransactions();
+                                    } else {
+                                      alert('Gagal: ' + (data.error || 'Terjadi kesalahan'));
+                                    }
+                                  } catch (err: any) {
+                                    alert('Error: ' + err.message);
+                                  }
+                                }}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/30"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>⚡ Simulasi Bayar Sukses (1-Klik)</span>
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1219,31 +1246,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   navigator.clipboard.writeText(urlToCopy);
                                   alert(
                                     '✅ URL QRIS Berhasil Disalin!\n\n' +
-                                    'Langkah selanjutnya:\n' +
-                                    '1. Buka link simulator Midtrans\n' +
-                                    '2. Paste ke kolom "QR Code URL"\n' +
-                                    '3. Klik Pay untuk verifikasi pembayaran.'
+                                    'Langkah test manual di simulator:\n' +
+                                    '1. Buka simulator (https://simulator.sandbox.midtrans.com/v2/qris/index)\n' +
+                                    '2. Paste ke kolom "QR Code Image Url"\n' +
+                                    '3. Klik "Scan QR" lalu klik "Pay".'
                                   );
                                 }}
-                                className="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-pink-600/30"
+                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                               >
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>Salin URL QRIS (Untuk Simulator)</span>
+                                <Copy className="w-3.5 h-3.5 text-pink-400" />
+                                <span>Salin URL QRIS</span>
                               </button>
 
                               <a
-                                href="https://simulator.sandbox.midtrans.com/qris/index"
+                                href="https://simulator.sandbox.midtrans.com/v2/qris/index"
                                 target="_blank"
                                 rel="noreferrer"
                                 className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700 rounded-xl font-bold flex items-center gap-1.5 transition-all"
                               >
-                                <span>Buka Simulator Midtrans</span>
+                                <span>Buka Simulator Midtrans v2</span>
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             </div>
 
                             <p className="text-[11px] text-gray-400">
-                              💡 <em>Catatan:</em> Midtrans Simulator memerlukan <strong>QR Code URL</strong> (bukan string teks angka) agar tidak muncul error <code>QR inputted unparsable</code>.
+                              💡 <em>Catatan:</em> Midtrans Simulator resmi menggunakan <code>/v2/qris/index</code> untuk QRIS dinamis modern. Atau gunakan tombol <strong>⚡ Simulasi Bayar Sukses</strong> untuk instan test tanpa perlu membuka tab baru.
                             </p>
                           </div>
                         </div>

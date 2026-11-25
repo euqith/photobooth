@@ -173,9 +173,37 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
           {transaction?.provider === 'midtrans' && (
             <div className="w-full mt-4 p-3 bg-pink-950/40 border border-pink-500/30 rounded-2xl flex flex-col items-center gap-2">
               <span className="text-[11px] text-pink-300 font-semibold text-center">
-                🧪 Testing Midtrans Sandbox? Buka simulator & tempel URL QRIS di bawah ini:
+                🧪 Testing Midtrans Sandbox? Pilih cara simulasi bayar di bawah:
               </span>
-              <div className="flex gap-2 w-full">
+
+              {/* 1-Click Auto Simulation Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const apiUrl = window.location.port === '5173' ? 'http://localhost:4000/api/payment/simulate-midtrans-pay' : '/api/payment/simulate-midtrans-pay';
+                    const res = await fetch(apiUrl, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ qrCodeUrl: transaction.qrCodeUrl }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert('✅ ' + data.message + '\nLayar akan beralih ke persiapan foto dalam beberapa detik.');
+                    } else {
+                      alert('Gagal simulasi: ' + (data.error || 'Terjadi kesalahan'));
+                    }
+                  } catch (err: any) {
+                    alert('Error: ' + err.message);
+                  }
+                }}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>⚡ Simulasikan Bayar Sukses (1-Klik Sandbox)</span>
+              </button>
+
+              <div className="flex gap-2 w-full pt-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -183,19 +211,19 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
                     navigator.clipboard.writeText(toCopy);
                     alert(
                       '✅ URL QRIS Berhasil Disalin!\n\n' +
-                      'Cara Test di Simulator Midtrans:\n' +
+                      'Cara Test Manual di Simulator Midtrans:\n' +
                       '1. Buka simulator (klik tombol Buka Simulator ↗)\n' +
-                      '2. Tempel/Paste URL yang baru disalin ke kotak input "QR Code URL"\n' +
-                      '3. Klik tombol Pay / Submit untuk simulasi bayar sukses.'
+                      '2. Tempelkan URL ke kolom "QR Code Image Url"\n' +
+                      '3. Klik "Scan QR" lalu klik "Pay".'
                     );
                   }}
-                  className="flex-1 py-2 px-3 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-pink-600/30"
+                  className="flex-1 py-2 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>Salin URL QRIS (Untuk Simulator)</span>
+                  <QrCode className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Salin URL QRIS</span>
                 </button>
                 <a
-                  href="https://simulator.sandbox.midtrans.com/qris/index"
+                  href="https://simulator.sandbox.midtrans.com/v2/qris/index"
                   target="_blank"
                   rel="noreferrer"
                   className="py-2 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
@@ -204,7 +232,7 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
                 </a>
               </div>
               <p className="text-[10px] text-gray-400 text-center">
-                *Simulator Midtrans memerlukan <strong>URL QR Code</strong> (bukan string teks mentah).
+                *Gunakan halaman <code>/v2/qris/index</code> resmi Midtrans untuk pengujian QRIS modern.
               </p>
             </div>
           )}
