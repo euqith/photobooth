@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { OverlayOptions } from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { TemplateMetadata, ColorFilter } from '../../shared/types';
@@ -65,7 +65,7 @@ export class TemplateCompositor {
     );
 
     // Step 2: Prepare composite layers for bottom layer (slots)
-    const compositeOps: sharp.OverlayOptions[] = [];
+    const compositeOps: OverlayOptions[] = [];
 
     for (const slot of allSlots) {
       const photoBuffer = processedPhotos[slot.poseIndex];

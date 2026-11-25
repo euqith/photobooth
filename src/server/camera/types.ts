@@ -4,6 +4,7 @@ export interface CameraHealth {
   isLiveViewActive: boolean;
   batteryLevel?: string;
   temperatureSafe?: boolean;
+  lastError?: string;
 }
 
 export interface CaptureResult {

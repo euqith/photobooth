@@ -1,0 +1,39 @@
+appId: com.photobooth.kiosk
+productName: DSLR Photobooth
+directories:
+  output: dist/bundle
+  buildResources: build
+
+files:
+  - "dist/**/*"
+  - "public/**/*"
+  - "package.json"
+
+asarUnpack:
+  - "node_modules/sharp/**/*"
+  - "node_modules/ffmpeg-static/**/*"
+  - "node_modules/@ffmpeg-installer/**/*"
+  - "bin/**/*"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  requestedExecutionLevel: asInvoker
+
+nsis:
+  oneClick: true
+  perMachine: true
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  runAfterFinish: true
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  category: public.app-category.photography

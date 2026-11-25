@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
 import { TemplateCompositor } from '../src/server/template/compositor';
+import { BoomerangService } from '../src/server/template/boomerangService';
 import { CameraManager } from '../src/server/camera/cameraManager';
 import { PrinterService } from '../src/server/printer/printerService';
 
@@ -55,8 +56,20 @@ async function testPipeline() {
   );
   console.log('Composite 18 (Vintage) Result:', res18);
 
-  // 4. Test Printer Service (Dry-Run Mode)
-  console.log('\n4. Testing PrinterService in Dry-Run Mode...');
+  // 4. Test Boomerang & GIF Generation
+  console.log('\n4. Testing BoomerangService (MP4 & GIF Loop)...');
+  const boomerangRes = await BoomerangService.generateBoomerang(
+    [rawPhoto1, rawPhoto2, rawPhoto3],
+    testDir
+  );
+  console.log('Boomerang Generated:', boomerangRes);
+  const mp4Size = fs.statSync(boomerangRes.mp4Path).size;
+  const gifSize = fs.statSync(boomerangRes.gifPath).size;
+  console.log(`Boomerang MP4 Size: ${(mp4Size / 1024).toFixed(1)} KB`);
+  console.log(`Boomerang GIF Size: ${(gifSize / 1024).toFixed(1)} KB`);
+
+  // 5. Test Printer Service (Dry-Run Mode)
+  console.log('\n5. Testing PrinterService in Dry-Run Mode...');
   const printer = PrinterService.getInstance();
   console.log('Printer Status:', printer.getStatus());
   const printRes = await printer.print(res1.printPath, 2);

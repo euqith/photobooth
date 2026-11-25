@@ -76,33 +76,122 @@ app.get('/share/:sessionId', (req, res) => {
   const sessionDir = path.join(outputDir, 'sessions', sessionId);
   const printImgUrl = `/output/sessions/${sessionId}/print_4x6_2up.jpg`;
   const stripImgUrl = `/output/sessions/${sessionId}/print_4x6_2up_strip.jpg`;
+  const boomerangMp4Url = `/output/sessions/${sessionId}/boomerang.mp4`;
+  const boomerangGifUrl = `/output/sessions/${sessionId}/boomerang.gif`;
+
+  // Check if individual poses exist
+  const poses: { num: number; url: string }[] = [];
+  for (let i = 1; i <= 6; i++) {
+    const pPath = path.join(sessionDir, `pose_${i}.jpg`);
+    if (fs.existsSync(pPath)) {
+      poses.push({ num: i, url: `/output/sessions/${sessionId}/pose_${i}.jpg` });
+    }
+  }
+
+  const hasBoomerang = fs.existsSync(path.join(sessionDir, 'boomerang.mp4'));
 
   res.send(`
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="id">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Your Photobooth Memories</title>
+      <title>Foto Photobooth Kamu</title>
       <script src="https://cdn.tailwindcss.com"></script>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-display { font-family: 'Poppins', sans-serif; }
+      </style>
     </head>
-    <body class="bg-gray-950 text-white min-h-screen flex flex-col items-center p-6">
+    <body class="bg-gray-950 text-white min-h-screen flex flex-col items-center p-4 sm:p-6 pb-16">
       <div class="max-w-md w-full flex flex-col items-center">
-        <h1 class="text-2xl font-bold mb-2 text-rose-400">✨ Photobooth Memories</h1>
-        <p class="text-gray-400 text-sm mb-6 text-center">Tap and hold on the photo or click the download button below!</p>
-        
-        <div class="bg-gray-900 p-3 rounded-2xl shadow-2xl border border-gray-800 mb-6">
-          <img src="${stripImgUrl}" alt="Photo Strip" class="rounded-xl max-h-[60vh] object-contain shadow-lg" onerror="this.src='${printImgUrl}'" />
+        <!-- Brand Header -->
+        <div class="text-center my-4">
+          <span class="text-xs uppercase tracking-widest text-pink-500 font-bold">Photobooth Digital Gallery</span>
+          <h1 class="text-2xl font-display font-extrabold text-white mt-1">✨ Kenangan Seru Kamu!</h1>
+          <p class="text-gray-400 text-xs mt-1">Unduh foto strip, video boomerang, dan pose jepretanmu di bawah ini.</p>
         </div>
 
-        <div class="flex flex-col gap-3 w-full">
-          <a href="${stripImgUrl}" download="photobooth_strip.jpg" class="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-600 rounded-xl font-bold text-center shadow-lg shadow-pink-500/20 active:scale-95 transition-all">
-            📥 Download Photo Strip
-          </a>
-          <a href="${printImgUrl}" download="photobooth_full.jpg" class="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold text-center border border-gray-700 active:scale-95 transition-all">
-            🖼️ Download Full 4R Collage
-          </a>
+        <!-- Section 1: Photo Strip Card -->
+        <div class="w-full bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl flex flex-col items-center mb-6">
+          <div class="flex items-center justify-between w-full mb-3">
+            <span class="text-xs font-bold text-pink-400 uppercase tracking-wider">Photo Strip 2x6"</span>
+            <span class="text-[10px] bg-gray-800 text-gray-300 px-2.5 py-1 rounded-full font-mono">Ready to Print & Share</span>
+          </div>
+          
+          <div class="bg-black/60 p-2 rounded-2xl border border-gray-800 w-full flex justify-center mb-4">
+            <img src="${stripImgUrl}" alt="Photo Strip" class="rounded-xl max-h-[50vh] object-contain shadow-2xl" onerror="this.src='${printImgUrl}'" />
+          </div>
+
+          <div class="flex flex-col gap-2.5 w-full">
+            <a href="${stripImgUrl}" download="photobooth_strip.jpg" class="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-600 rounded-xl font-bold text-center text-sm shadow-lg shadow-pink-500/20 active:scale-95 transition-all">
+              📥 Download Photo Strip
+            </a>
+            <a href="${printImgUrl}" download="photobooth_full_4R.jpg" class="w-full py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold text-center text-xs text-gray-300 border border-gray-700 active:scale-95 transition-all">
+              🖼️ Download Full 4R Collage (2-Strip)
+            </a>
+          </div>
         </div>
+
+        <!-- Section 2: Boomerang Video Card (if available) -->
+        ${
+          hasBoomerang
+            ? `
+        <div class="w-full bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl flex flex-col items-center mb-6">
+          <div class="flex items-center justify-between w-full mb-3">
+            <span class="text-xs font-bold text-yellow-400 uppercase tracking-wider">🎬 Boomerang Video Loop</span>
+            <span class="text-[10px] bg-yellow-500/20 text-yellow-300 px-2.5 py-1 rounded-full font-semibold">Instagram & TikTok Ready</span>
+          </div>
+
+          <div class="w-full rounded-2xl overflow-hidden bg-black aspect-[2/3] max-h-[45vh] flex justify-center mb-4 border border-gray-800">
+            <video src="${boomerangMp4Url}" autoplay loop muted playsinline class="h-full w-full object-cover"></video>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 w-full">
+            <a href="${boomerangMp4Url}" download="photobooth_boomerang.mp4" class="py-3 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl font-bold text-center text-xs text-white shadow-lg active:scale-95 transition-all">
+              🎥 Download MP4
+            </a>
+            <a href="${boomerangGifUrl}" download="photobooth_boomerang.gif" class="py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-center text-xs text-gray-300 border border-gray-700 active:scale-95 transition-all">
+              🎞️ Download GIF
+            </a>
+          </div>
+        </div>
+        `
+            : ''
+        }
+
+        <!-- Section 3: Individual Poses Gallery -->
+        ${
+          poses.length > 0
+            ? `
+        <div class="w-full bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl flex flex-col mb-6">
+          <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3">📸 Foto Individual Resolusi Tinggi</span>
+          <div class="grid grid-cols-2 gap-3">
+            ${poses
+              .map(
+                (p) => `
+              <div class="flex flex-col bg-gray-800/80 rounded-2xl p-2 border border-gray-700/60">
+                <div class="aspect-[2/3] rounded-xl overflow-hidden bg-black mb-2">
+                  <img src="${p.url}" alt="Pose ${p.num}" class="w-full h-full object-cover" />
+                </div>
+                <a href="${p.url}" download="photobooth_pose_${p.num}.jpg" class="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-center text-[11px] font-semibold active:scale-95 transition-all">
+                  Unduh Pose ${p.num}
+                </a>
+              </div>
+            `
+              )
+              .join('')}
+          </div>
+        </div>
+        `
+            : ''
+        }
+
+        <footer class="text-center text-gray-500 text-xs mt-4">
+          Powered by Professional DSLR Photobooth Engine
+        </footer>
       </div>
     </body>
     </html>

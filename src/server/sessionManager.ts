@@ -1,10 +1,10 @@
 import { Server as SocketIOServer } from 'socket.io';
-import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
 import { PhotoSession, PhotoboothState, ColorFilter } from '../shared/types';
 import { CameraManager } from './camera/cameraManager';
 import { TemplateCompositor } from './template/compositor';
+import { BoomerangService } from './template/boomerangService';
 import { PrinterService } from './printer/printerService';
 
 export class SessionManager {
@@ -181,15 +181,27 @@ export class SessionManager {
       const sessionDir = path.join(this.sessionsDir, this.currentSession.id);
       const printOutputPath = path.join(sessionDir, 'print_4x6_2up.jpg');
 
-      const composite = await TemplateCompositor.compositePhotos(
-        this.currentSession.templateId,
-        this.currentSession.capturedPhotos,
-        printOutputPath,
-        this.currentSession.filter
-      );
+      // Run sharp collage compositing and FFmpeg boomerang generation in parallel
+      const [composite, boomerang] = await Promise.all([
+        TemplateCompositor.compositePhotos(
+          this.currentSession.templateId,
+          this.currentSession.capturedPhotos,
+          printOutputPath,
+          this.currentSession.filter
+        ),
+        BoomerangService.generateBoomerang(
+          this.currentSession.capturedPhotos,
+          sessionDir
+        ).catch((err) => {
+          console.warn('Boomerang generation warning:', err);
+          return { mp4Path: '', gifPath: '' };
+        }),
+      ]);
 
       this.currentSession.printPath = composite.printPath;
       this.currentSession.singleStripPath = composite.singleStripPath;
+      this.currentSession.boomerangMp4Path = boomerang.mp4Path;
+      this.currentSession.boomerangGifPath = boomerang.gifPath;
       this.currentSession.state = 'RESULT_SHARE';
       this.broadcastState();
     } catch (err) {

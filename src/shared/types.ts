@@ -44,6 +44,8 @@ export interface PhotoSession {
   filter: ColorFilter;
   printPath?: string;
   singleStripPath?: string;
+  boomerangMp4Path?: string;
+  boomerangGifPath?: string;
   qrCodeUrl?: string;
   printCopies: number;
   state: PhotoboothState;
