@@ -375,3 +375,201 @@ Seluruh rencana kerja dibagi ke dalam **6 Milestone / Epic**, **18 User Stories*
 - **Story 6.2**: Production Packaging & Windows i5 Gen 6 Provisioning
   - Konfigurasi `electron-builder` untuk menghasilkan installer Windows x64 dan macOS arm64.
   - Buat script PowerShell provisioning untuk PC Windows Production (mematikan USB Selective Suspend, Windows Sleep, Touch Edge Swipe, dan mengatur Auto-Start aplikasi saat boot).
+
+---
+
+## 6. Phase 2: Payment Gateway Integration (Commercial Self-Service Kiosk Mode)
+
+Pada **Phase 2**, aplikasi bertransformasi menjadi **Commercial Self-Service Kiosk** (mesin photobooth mandiri berbayar). Pengguna melakukan pembayaran non-tunai mandiri dengan memindai **Dynamic QRIS** (standar pembayaran QR nasional Indonesia via GoPay, OVO, DANA, ShopeePay, BCA Mobile, Livin' Mandiri, dll.) sebelum sesi pemotretan dimulai.
+
+---
+
+### 6.1 Self-Service Commercial User Flow
+
+1. **Touch to Start & Package/Template Selection**:
+   - Pengguna menyentuh layar *Attract Screen* dan memilih paket/desain kolase foto (beserta jumlah cetak/copy jika bervariasi).
+   - **Pre-Flight Hardware Gate**: Sebelum membuat tagihan pembayaran, backend otomatis memverifikasi status kesehatan kamera DSLR (`Connected & Ready`) dan printer. Jika kamera terputus atau kertas habis, sistem menahan transaksi agar pelanggan **tidak pernah terdebet saat alat bermasalah**.
+2. **Transaction Request & Dynamic QRIS Generation**:
+   - Frontend Electron meminta pembuatan transaksi (`socket.emit('payment:create', { templateId, amount })`).
+   - Backend Node.js memanggil API Payment Gateway (**Midtrans Core API — GoPay/QRIS** atau **Xendit QR Codes API**) untuk men-generate string QRIS dinamis unik beserta `transactionId` / `orderId` dan waktu kedaluwarsa (5 menit).
+3. **QRIS Payment Screen & 5-Minute Countdown**:
+   - Layar menampilkan QR Code QRIS dinamis berukuran besar dan kontras tinggi, nominal harga (mis. `Rp 35.000`), instruksi cara bayar, dan *countdown timer* `05:00`.
+   - Selama menunggu pembayaran, **DSLR tetap dalam kondisi Standby (Live View OFF, cermin turun, sensor dingin)**.
+4. **Real-Time Payment Verification**:
+   - Begitu pelanggan menyelesaikan pembayaran di aplikasi m-banking/e-wallet, sistem mendeteksi status `SETTLEMENT` / `PAID` secara otomatis dalam hitungan detik.
+5. **Automatic Transition to DSLR Live View**:
+   - Layar menampilkan animasi sukses pembayaran (*"Pembayaran Berhasil! Bersiaplah..."*) selama 1.5 detik.
+   - Backend membangunkan kamera DSLR (`startLiveView`), mengangkat cermin, dan otomatis masuk ke layar **Live View & Pose Capture**.
+
+---
+
+### 6.2 Task 1: Architecture Solution for Payment Verification Behind Local NAT
+
+#### Masalah Teknis Utama (NAT / No Public IP Constraint)
+Mesin photobooth berjalan di atas PC Windows lokal yang terhubung ke internet melalui Wi-Fi venue, router 4G/5G MiFi, atau tethering seluler. PC lokal berada di balik **NAT (Network Address Translation) / Firewall** dan **tidak memiliki IP Publik statis**. Akibatnya, server Payment Gateway (Midtrans / Xendit) di internet **tidak dapat mengirim HTTP POST Webhook secara langsung** ke `http://localhost:4000` di mesin photobooth.
+
+---
+
+#### Perbandingan Mendalam: Approach A (HTTP Polling) vs Approach B (Cloud Relay)
+
+| Kriteria Evaluasi | Approach A: Direct HTTP Polling | Approach B: Cloud Webhook Relay (Firebase / Supabase) |
+| :--- | :--- | :--- |
+| **Cara Kerja** | Backend Node.js lokal memanggil endpoint `GET /v2/{order_id}/status` (Midtrans) atau `GET /qr_codes/{id}` (Xendit) setiap **3 detik** selama layar QRIS aktif (maksimal 5 menit). | Payment Gateway mengirim HTTP Webhook ke Cloud Function / Firebase; aplikasi lokal membuka koneksi outbound WebSocket/监听器 ke Firebase Realtime DB (`onValue`) untuk menerima push state. |
+| **Kompleksitas Infrastruktur** | **Sangat Rendah (Zero Cloud Infra)**. Hanya butuh `MIDTRANS_SERVER_KEY` di `.env` lokal. Tidak perlu mengelola akun/server cloud tambahan. | **Menengah–Tinggi**. Membutuhkan deployment Cloud Function (endpoint penerima webhook), database Firebase/Supabase, manajemen aturan keamanan (Security Rules), dan rotasi token. |
+| **Latensi Deteksi Bayar** | **1.5 – 3.0 detik** rata-rata (tergantung siklus interval polling 3 detik). Sangat dapat diterima untuk pengalaman kiosk fisik. | **< 0.5 detik (Real-Time Push)**. Begitu webhook diterima cloud, event langsung ter-push ke Electron via WebSocket yang sudah terbuka. |
+| **Pemakaian Bandwidth & Rate Limit** | Sangat ringan. Hanya polling saat ada user di layar QRIS: 1 request / 3 detik = maks 100 request per sesi 5 menit (jauh di bawah rate limit Midtrans/Xendit yang mengizinkan ratusan req/detik). | Sangat hemat bandwidth; koneksi WebSocket idle dan hanya mengirim payload JSON kecil (< 1 KB) saat status transaksi berubah. |
+| **Titik Kegagalan (Single Point of Failure)** | Hanya bergantung pada: `Koneksi Internet Lokal <-> API Payment Gateway`. | Bergantung pada 3 pihak: `API Payment Gateway -> Cloud Function -> Firebase Realtime DB -> Koneksi Lokal`. Jika Cloud Function cold-start lambat atau webhook retry tertunda, kiosk ikut menunggu. |
+| **Skalabilitas Multi-Booth (Fleet Management)** | Kurang ideal jika memiliki > 50 mesin yang ingin dipantau terpusat secara real-time di cloud. | **Sangat Ideal untuk Fleet Management** (dashboard pusat pemilik bisnis dapat melihat omzet seluruh cabang secara real-time di Firebase). |
+
+---
+
+#### Rekomendasi Arsitektur Terbaik: **Hybrid Verification Engine (Primary HTTP Polling + Optional Cloud Relay Hook)**
+
+Untuk mesin photobooth komersial di lapangan, **Approach A (Intelligent HTTP Polling dengan Adaptive Interval 2.5–3 detik)** adalah fondasi wajib yang paling tangguh (*battle-tested*), yang dipadukan dengan arsitektur *pluggable* untuk **Approach B (Cloud Relay)** jika operator mengaktifkan sinkronisasi cloud:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Guest as Guest (Touchscreen & Phone)
+    participant UI as Electron React UI
+    participant Node as Local Node.js Backend (behind NAT)
+    participant DSLR as Canon DSLR (USB)
+    participant PG as Payment Gateway API (Midtrans/Xendit)
+    participant Cloud as Optional Cloud Relay (Firebase RTDB)
+
+    Guest->>UI: 1. Pilih Template & Klik "Bayar via QRIS"
+    UI->>Node: 2. socket.emit('payment:create', { templateId })
+    Node->>DSLR: 3. Pre-Flight Check: Verify Camera Connected & EVF is OFF
+    DSLR-->>Node: Camera Ready (Standby / Cool Sensor)
+    Node->>PG: 4. POST /v2/charge (payment_type: "qris", amount: 35000)
+    PG-->>Node: 5. Return QRIS String / Image URL & order_id (Expires in 5m)
+    Node-->>UI: 6. Broadcast state: 'AWAITING_PAYMENT' + QRIS Data
+
+    Note over DSLR: DSLR remains in STANDBY (Mirror Down / EVF OFF)\nZero thermal heat generated while guest opens banking app
+
+    Guest->>PG: 7. Scan QRIS & Authorize Payment on Smartphone
+
+    par Approach A: Local Adaptive HTTP Polling (Every 2.5s)
+        loop Every 2.5s while state == AWAITING_PAYMENT
+            Node->>PG: GET /v2/{order_id}/status
+            PG-->>Node: transaction_status: "settlement"
+        end
+    and Approach B: Optional Cloud Webhook Relay (Real-Time Push)
+        PG->>Cloud: Webhook POST (transaction_status: "settlement")
+        Cloud-->>Node: Firebase onValue() / WebSocket Push (< 500ms)
+    end
+
+    Note over Node: First confirmation wins (Idempotent Mutex Lock)\nStop Poller & Record Paid Transaction in Local SQLite/JSON
+
+    Node->>UI: 8. Broadcast 'PAYMENT_SUCCESS'
+    Node->>DSLR: 9. Wake Up Camera -> Start Live View (EVF ON)
+    DSLR-->>UI: 10. Stream Live View Frames & Show "AMBIL FOTO" Button
+```
+
+#### Mengapa Strategi Ini Paling Unggul?
+1. **Zero-Config Reliability (Approach A Built-In)**: Mesin photobooth langsung siap beroperasi di lokasi acara mana pun hanya dengan koneksi internet standar dan API Key Midtrans/Xendit—tanpa risiko webhook gagal masuk karena NAT/Firewall dan tanpa ketergantungan pada server perantara.
+2. **Adaptive Polling & Idempotent Lock**:
+   - Polling hanya berjalan selama state `AWAITING_PAYMENT` aktif (interval 2.5 detik) dan **langsung dihentikan (`clearInterval`)** begitu status menjadi `PAID`, `EXPIRED` (5 menit), atau `CANCELLED`.
+   - Jika Cloud Relay (Firebase) diaktifkan, mana pun yang lebih dulu melaporkan status `PAID` (Push dari Firebase atau Poll dari HTTP) akan memicu *Idempotent Lock* sehingga sesi foto hanya dimulai tepat satu kali.
+3. **3 Mode Operasi Fleksibel di Admin Dashboard**:
+   - **Free / Event Mode (B2B Wedding/Corporate)**: Lewati layar pembayaran (langsung pilih template -> foto).
+   - **Paid QRIS Mode — Sandbox Simulator**: Menampilkan QRIS simulasi lengkap dengan tombol *"Simulasi Bayar Sukses"* di layar untuk keperluan *testing* developer/operator tanpa memotong saldo uang asli.
+   - **Paid QRIS Mode — Production (Midtrans / Xendit Live)**: Terhubung ke akun merchant produksi dengan verifikasi QRIS nyata + fitur **Kode Voucher / PIN Operator Bypass** (jika tamu membayar tunai ke penjaga booth).
+
+---
+
+### 6.3 Task 2: State Management & DSLR Hardware Thermal Safety Flow
+
+#### Prinsip Utama Keamanan Hardware Selama Menunggu Pembayaran
+Proses pembayaran QRIS memakan waktu rata-rata **30 detik hingga 3 menit** (tamu membuka HP, mencari sinyal, login aplikasi bank, memindai QR, memasukkan PIN). Selain itu, banyak pengguna yang hanya melihat-lihat layar harga lalu pergi tanpa membayar (hingga *timeout* 5 menit).
+- **Aturan Mutlak**: Jika kamera Canon 6D / 70D menyalakan Live View selama masa tunggu pembayaran 5 menit tersebut, sensor CMOS akan mengalami **overheating parah**, menguras baterai/memanaskan regulator *dummy battery*, dan memicu error shutter di tengah acara.
+- Oleh karena itu, **Live View DSLR WAJIB MATI (`EVF OFF`, Cermin Turun)** selama seluruh siklus pemilihan template dan pembayaran.
+
+---
+
+#### Diagram State Machine & Transisi Hardware DSLR
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+
+    state "1. IDLE (Attract Screen)" as IDLE
+    IDLE: UI: Video Loop AttractScreen
+    IDLE: DSLR: STANDBY (Mirror DOWN, EVF OFF, Output=Off)
+
+    state "2. SELECT_TEMPLATE (Package & Layout)" as SELECT_TEMPLATE
+    SELECT_TEMPLATE: UI: Pilih Template (2/3/4 Pose) & Paket Harga
+    SELECT_TEMPLATE: DSLR: STANDBY (Mirror DOWN, EVF OFF)
+
+    state "3. AWAITING_PAYMENT (QRIS Screen)" as AWAITING_PAYMENT
+    AWAITING_PAYMENT: UI: Tampilkan Dynamic QRIS + Timer 05:00
+    AWAITING_PAYMENT: Backend: Start 2.5s Status Poller / Cloud Listener
+    AWAITING_PAYMENT: DSLR: STRICT STANDBY (Mirror DOWN, EVF OFF - Cool Sensor)
+
+    state "4. PAYMENT_SUCCESS (Transition)" as PAYMENT_SUCCESS
+    PAYMENT_SUCCESS: UI: Animasi "Pembayaran Berhasil!" (1.5s)
+    PAYMENT_SUCCESS: Backend: Stop Poller, Log Receipt
+    PAYMENT_SUCCESS: DSLR: Send Wake-Up & Pre-Check USB Readiness
+
+    state "5. LIVEVIEW_PREP & CAPTURE" as LIVEVIEW
+    LIVEVIEW: UI: Live View Stream + Tombol "AMBIL FOTO" + Countdown
+    LIVEVIEW: DSLR: ACTIVE (Mirror UP, EVF Streaming -> High-Res Shutter)
+
+    state "6. PROCESSING & RESULT_SHARE" as RESULT
+    RESULT: UI: Loading Video -> Cetak 4R & QR Download Foto
+    RESULT: DSLR: COOLDOWN STANDBY (Force EVF OFF Immediately After Last Pose)
+
+    IDLE --> SELECT_TEMPLATE: User Taps Start
+    SELECT_TEMPLATE --> IDLE: Cancel / 60s Idle Timeout
+    SELECT_TEMPLATE --> AWAITING_PAYMENT: Paid Mode Enabled -> Generate QRIS
+    SELECT_TEMPLATE --> LIVEVIEW: Free Event Mode -> Skip Payment
+
+    AWAITING_PAYMENT --> IDLE: Cancel / 5-Min QRIS Expired (Void API Call)\n[DSLR Never Woke Up = 0% Thermal Wear]
+    AWAITING_PAYMENT --> PAYMENT_SUCCESS: Webhook / Poll returns SETTLEMENT (or Voucher Bypass)
+    PAYMENT_SUCCESS --> LIVEVIEW: Auto Wake DSLR & Start EVF Stream
+    LIVEVIEW --> RESULT: All N Poses Captured -> Drop Mirror Immediately
+    RESULT --> IDLE: Done / 60s Timeout
+```
+
+---
+
+#### Detail Logika & Protokol Transisi Hardware (`[Idle] -> [Wait QRIS] -> [Payment Success] -> [Wake Camera]`)
+
+| Tahap State | Status Kamera DSLR (Canon 6D / 70D) | Aksi Backend (`SessionManager` & `CameraManager`) | Proteksi Kegagalan (*Fail-Safe Guard*) |
+| :--- | :--- | :--- | :--- |
+| **1. `IDLE` & `SELECT_TEMPLATE`** | **Mirror DOWN**, `viewfinder=0`, `output=Off`. Suhu sensor dingin. | Memastikan tidak ada proses `gphoto2` atau `EDSDK Evf` yang berjalan di latar belakang. | Jika sesi sebelumnya baru selesai, kamera sedang dalam fase *cooldown*. |
+| **2. Pre-Payment Hardware Check** | **Mirror DOWN** (Standby). | Sebelum memanggil API Midtrans/Xendit, jalankan `cameraManager.getHealth()`. Pastikan USB kamera terdeteksi dan printer tidak dalam kondisi error fatal. | **Mencegah Kerugian Konsumen**: Jika kamera mati/kabel lepas, tolak pembuatan QRIS dan tampilkan peringatan *"Alat SedangPerawatan - Hubungi Operator"*. |
+| **3. `AWAITING_PAYMENT` (Maks 5 Menit)** | **Mirror DOWN** (Strict Standby). **Dilarang menyalakan Live View.** | Membuat transaksi QRIS, menyalakan timer mundur 300 detik, dan menjalankan loop verifikasi pembayaran setiap 2.5 detik. | Jika waktu 5 menit habis atau user menekan *Batal*, panggil API `cancelTransaction()`, hentikan poller, dan kembali ke `IDLE`. Kamera sama sekali tidak terpakai (0% beban termal). |
+| **4. `PAYMENT_SUCCESS` Trigger** | Transisi dari **Standby -> Wake Up**. | 1. Kunci status transaksi (`PAID`) dengan mutex idempoten.<br>2. Hentikan timer expire & poller.<br>3. Pancarkan event `payment:verified` ke UI. | Jika terjadi duplikasi sinyal (mis. polling dan webhook datang bersamaan), mutex memastikan kamera hanya dibangunkan **1 kali**. |
+| **5. `LIVEVIEW_PREP` (Wake Camera & Start Live View)** | **Mirror UP**, `viewfinder=1`, stream MJPEG 20–30 FPS aktif. | 1. Jalankan `killMacPtpDaemons()` / `EdsOpenSession()`.<br>2. Mulai `cameraManager.startLiveView()`.<br>3. Tampilkan panduan frame & tombol **"AMBIL FOTO"**. | **Auto-Retry Wake Up**: Jika kamera tertidur (*deep sleep*) dan gagal merespons dalam 2 detik saat dibangunkan pasca-bayar, backend otomatis melakukan 1x USB soft-reset dan mencoba ulang `startLiveView()`. Jika tetap gagal, sistem mengeluarkan **Kode Voucher Re-Take Gratis** di layar agar uang pelanggan tidak hangus. |
+
+---
+
+### 6.4 Phase 2 Agile Roadmap: Epics, User Stories, and Tasks (Synced to GitHub)
+
+Untuk mengeksekusi **Phase 2**, ditambahkan **2 Epic Baru (Epic 7 & Epic 8)** beserta **6 User Stories** ke dalam backlog project:
+
+#### Epic 7: Dynamic QRIS Payment Gateway Engine & Hybrid Verification (NAT-Traversal)
+- **Story 7.1**: Payment Gateway Abstraction Layer (`IPaymentProvider`: Midtrans, Xendit & Mock Sandbox)
+  - Buat interface `IPaymentProvider` dengan metode `createQrisTransaction(orderId, amount, metadata)`, `checkTransactionStatus(orderId)`, dan `cancelTransaction(orderId)`.
+  - Implementasikan **Midtrans Core API QRIS Provider** (`/v2/charge` dengan `payment_type: 'qris'`) dan **Xendit QRIS Provider**.
+  - Implementasikan **Sandbox / Mock QRIS Provider** yang menghasilkan QR Code lokal instan dan menyediakan endpoint simulasi bayar (`POST /api/payment/simulate-pay`) untuk pengujian tanpa biaya.
+- **Story 7.2**: Hybrid NAT-Traversal Payment Verification Engine (Adaptive HTTP Poller + Optional Cloud Relay)
+  - Implementasikan **Adaptive HTTP Polling Worker** di Node.js yang mengecek status transaksi setiap 2.5 detik hanya selama state `AWAITING_PAYMENT` aktif, lengkap dengan *exponential backoff* saat koneksi internet fluktuatif.
+  - Sediakan hook opsional **Cloud Webhook Relay Listener** (SSE / Firebase Realtime Database WebSocket client) yang dapat diaktifkan via konfigurasi `.env` untuk sinkronisasi instan multi-cabang.
+  - Terapkan **Idempotent Payment Settlement Lock** agar konfirmasi ganda tidak pernah memicu sesi ganda.
+- **Story 7.3**: Pre-Payment Hardware Health Gate & Local Transaction Ledger
+  - Tambahkan *Pre-Flight Check* sebelum membuat QRIS: pastikan kamera DSLR berstatus `Connected` dan printer siap.
+  - Simpan seluruh log transaksi (`orderId`, `sessionId`, `amount`, `provider`, `status`: `PENDING` | `PAID` | `EXPIRED` | `CANCELLED` | `REFUND_VOUCHER`, `paidAt`) ke penyimpanan lokal untuk audit kasir/operator.
+
+#### Epic 8: Self-Service Payment UI, Thermal-Safe FSM & Commercial Kiosk Controls
+- **Story 8.1**: Touchscreen QRIS Payment Screen, 5-Minute Expiry Timer & Voucher Bypass
+  - Bangun komponen `PaymentQrisScreen.tsx` yang menampilkan gambar QRIS dinamis, nominal harga Rupiah, logo dukungan pembayaran (QRIS / GoPay / OVO / DANA / BCA / Mandiri), *progress bar* waktu mundur 5 menit, dan tombol Batal.
+  - Tambahkan fitur input **Kode Voucher / PIN Bypass Operator** bagi tamu VIP atau pembayaran tunai di tempat.
+  - Tambahkan tombol **"Simulasi Bayar Berhasil (Dev/Sandbox)"** yang hanya muncul saat mode `SANDBOX` aktif.
+- **Story 8.2**: Thermal-Safe Payment-to-LiveView FSM Integration
+  - Perbarui `SessionManager` FSM untuk menyisipkan state `AWAITING_PAYMENT` dan `PAYMENT_SUCCESS` di antara `SELECT_TEMPLATE` dan `LIVEVIEW_PREP`.
+  - Pastikan Live View DSLR tetap **MATI (`EVF OFF`)** selama di layar `AWAITING_PAYMENT`, dan hanya menyala otomatis tepat setelah event `PAYMENT_SUCCESS` tervalidasi.
+  - Implementasikan *Wake-Up Auto-Retry & Fail-Safe Voucher Generator* apabila kamera gagal bangun setelah pembayaran berhasil.
+- **Story 8.3**: Commercial Admin Settings (Free vs Paid Mode, Pricing & Revenue Report)
+  - Tambahkan panel kontrol pembayaran di `AdminDashboard.tsx`: toggle antara **Free Event Mode** vs **Paid Self-Service Kiosk Mode**, pengaturan harga per sesi (mis. `Rp 35.000`), pilihan provider (`Sandbox Mock`, `Midtrans Live`, `Xendit Live`), serta ringkasan total transaksi sukses & pendapatan harian.
