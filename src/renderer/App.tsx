@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { PhotoboothState, PhotoSession, TemplateMetadata, ColorFilter } from '../shared/types';
 import { AttractScreen } from './components/AttractScreen';
 import { TemplateSelectorScreen } from './components/TemplateSelectorScreen';
+import { PaymentQrisScreen } from './components/PaymentQrisScreen';
 import { LiveViewScreen } from './components/LiveViewScreen';
 import { ShotReviewModal } from './components/ShotReviewModal';
 import { ProcessingScreen } from './components/ProcessingScreen';
@@ -127,6 +128,14 @@ export const App: React.FC = () => {
     socket?.emit('session:done');
   };
 
+  const simulatePaid = () => {
+    socket?.emit('payment:simulateSuccess');
+  };
+
+  const applyVoucher = (code: string) => {
+    socket?.emit('payment:applyVoucher', code);
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black font-sans select-none">
       {/* 1. Attract Screen (IDLE) */}
@@ -143,6 +152,29 @@ export const App: React.FC = () => {
           onReady={readyLiveView}
           onCancel={endSession}
         />
+      )}
+
+      {/* 2.5 QRIS Payment Screen */}
+      {state === 'AWAITING_PAYMENT' && (
+        <PaymentQrisScreen
+          transaction={session?.payment}
+          onCancel={endSession}
+          onSimulatePaid={simulatePaid}
+          onApplyVoucher={applyVoucher}
+        />
+      )}
+
+      {/* 2.6 Payment Success Celebration Cue */}
+      {state === 'PAYMENT_SUCCESS' && (
+        <div className="relative w-full h-full bg-gray-950 flex flex-col items-center justify-center">
+          <div className="p-8 bg-gray-900 border-2 border-green-500 rounded-3xl flex flex-col items-center shadow-2xl animate-bounce">
+            <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mb-3">
+              <span className="text-4xl">✓</span>
+            </div>
+            <h2 className="text-3xl font-display font-black text-white">Pembayaran Berhasil!</h2>
+            <p className="text-gray-300 text-sm mt-1">Menyiapkan kamera DSLR Canon, bersiaplah...</p>
+          </div>
+        </div>
       )}
 
       {/* 3. Live View & Countdown */}

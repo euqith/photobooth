@@ -28,3 +28,28 @@ Please analyze industry-standard photobooth applications (such as DSLRBooth, Dar
 After the analysis, propose the best system architecture and node modules we should use to handle the Canon DSLR connection and silent printing seamlessly across both macOS (Dev) and Windows (Prod).
 
 untuk template grid dan layout photo collage seperti pada folder template. Untuk video .mp4 yang ada pada folder template silahkan digunakan untuk splash screen atau loading screen atau apapun nantinya
+
+
+
+# Phase 2: Payment Gateway Integration (Self-Service Kiosk Mode)
+The photobooth will operate as a commercial self-service kiosk. We need to integrate a Payment Gateway module, specifically generating dynamic QR Codes (QRIS - Indonesian standard payment) for users to scan before the photo session begins.
+
+# User Flow
+1. User interacts with the touchscreen and selects a photo package.
+2. The Electron frontend requests a transaction.
+3. The Node.js backend calls the Payment Gateway API (e.g., Midtrans or Xendit) to generate a dynamic QR Code.
+4. The QR Code is displayed on the frontend with a timeout timer (e.g., 5 minutes).
+5. Once payment is successful, the UI automatically transitions to the DSLR Live View and starts the countdown.
+
+# Technical Challenge & Constraints
+The photobooth runs on a local Windows PC (behind NAT/Router) and does NOT have a public IP. Therefore, it cannot directly receive standard HTTP webhooks from the Payment Gateway when a payment succeeds. 
+
+# Task 1: Architecture Solution for Payment Verification
+Please propose the best approach to handle payment verification for a local machine. Consider and compare these two approaches:
+- Approach A: HTTP Polling (The local Node.js backend polls the Payment Gateway's transaction status API every 3-5 seconds).
+- Approach B: Cloud Relay (Using a lightweight cloud service like Firebase Realtime Database to receive the webhook, while the local Electron app listens to Firebase for real-time state changes). 
+
+# Task 2: State Management & Hardware Safety
+While waiting for payment, the Canon DSLR should remain in a safe standby state (Live View OFF) to prevent the sensor from overheating. 
+Provide the logic/flow on how to manage the hardware state transitions: 
+[Idle/Standby] -> [Generate QR & Wait for Payment] -> [Payment Success Trigger] -> [Wake Up Camera & Start Live View].

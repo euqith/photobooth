@@ -11,6 +11,9 @@ import { SessionManager } from './sessionManager';
 import { CameraManager } from './camera/cameraManager';
 import { PrinterService } from './printer/printerService';
 import { TemplateCompositor } from './template/compositor';
+import { TemplateInspectorService } from './template/templateInspector';
+import { PaymentManager } from './payment/paymentManager';
+import { SettingsManager } from './config/settingsManager';
 
 const app = express();
 const server = http.createServer(app);
@@ -54,38 +57,111 @@ function getLocalIp(): string {
 const sessionManager = new SessionManager(io);
 const cameraManager = CameraManager.getInstance();
 const printerService = PrinterService.getInstance();
+const paymentManager = PaymentManager.getInstance();
+const settingsManager = SettingsManager.getInstance();
 
 // REST APIs
 app.get('/api/health', async (req, res) => {
   const camHealth = await cameraManager.getHealth();
   const printStatus = printerService.getStatus();
+  const settings = settingsManager.getSettings();
+  const revenue = paymentManager.getDailyRevenue();
+
   res.json({
     status: 'ok',
     camera: camHealth,
     printer: printStatus,
+    settings,
+    revenue,
     localIp: getLocalIp(),
   });
 });
 
-app.post('/api/camera/test-shot', async (req, res) => {
+// Settings API
+app.get('/api/admin/settings', (req, res) => {
+  res.json(settingsManager.getSettings());
+});
+
+app.post('/api/admin/settings', (req, res) => {
+  const updated = settingsManager.updateSettings(req.body);
+  res.json({ success: true, settings: updated });
+});
+
+// Transactions Ledger & Revenue API
+app.get('/api/admin/transactions', (req, res) => {
+  res.json({
+    transactions: paymentManager.getAllTransactions(),
+    daily: paymentManager.getDailyRevenue(),
+  });
+});
+
+app.get('/api/admin/transactions/export-csv', (req, res) => {
+  const txs = paymentManager.getAllTransactions();
+  let csv = 'Order ID,Session ID,Amount,Provider,Status,Created At,Paid At\n';
+  txs.forEach((t) => {
+    csv += `"${t.orderId}","${t.sessionId}",${t.amount},"${t.provider}","${t.status}","${new Date(t.expiresAt - 5*60000).toISOString()}","${t.paidAt ? new Date(t.paidAt).toISOString() : ''}"\n`;
+  });
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="photobooth_transactions.csv"');
+  res.send(csv);
+});
+
+// Payment Webhook Receiver (Midtrans, Xendit, Cloud Relay)
+app.post('/api/payment/webhook', (req, res) => {
+  console.log('[Webhook Received]:', req.body);
+  const settled = paymentManager.handleWebhookNotification(req.body);
+  res.json({ received: true, settled });
+});
+
+// Test Connection & Simulate Webhook Endpoint
+app.post('/api/admin/test-webhook', (req, res) => {
+  const current = paymentManager.getCurrentTransaction();
+  if (current) {
+    const settled = paymentManager.simulateSandboxSuccess();
+    return res.json({ success: true, message: 'Simulated webhook processed', settled });
+  }
+  res.json({ success: true, message: 'Test ping OK' });
+});
+
+// Template Management API
+app.get('/api/templates', (req, res) => {
+  res.json(TemplateInspectorService.getAllTemplates());
+});
+
+// Upload New Template PNG (using raw base64 or file buffer)
+app.post('/api/admin/templates/upload', express.json({ limit: '25mb' }), async (req, res) => {
   try {
-    const testDir = path.resolve(__dirname, '../../output');
-    fs.mkdirSync(testDir, { recursive: true });
-    const testPath = path.join(testDir, 'test_shot.jpg');
-    const result = await cameraManager.capturePhoto(testPath);
-    res.json({
-      success: true,
-      url: `/output/test_shot.jpg?t=${Date.now()}`,
-      timeMs: result.captureTimeMs,
-    });
+    const { title, imageBase64 } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Image data is required' });
+    }
+
+    const templateId = 'custom_' + Date.now();
+    const tempPath = path.join(os.tmpdir(), `${templateId}.png`);
+    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    fs.writeFileSync(tempPath, Buffer.from(cleanBase64, 'base64'));
+
+    const meta = await TemplateInspectorService.processAndSaveTemplate(templateId, title, tempPath);
+    try { fs.unlinkSync(tempPath); } catch {}
+
+    res.json({ success: true, template: meta });
   } catch (err: any) {
-    console.error('Test shot API error:', err);
-    res.status(500).json({ success: false, error: err?.message || 'Capture failed' });
+    console.error('Template upload error:', err);
+    res.status(500).json({ error: err?.message || 'Failed to process template' });
   }
 });
 
-app.get('/api/templates', (req, res) => {
-  res.json(TemplateCompositor.getAllTemplates());
+app.post('/api/admin/templates/:id/toggle', (req, res) => {
+  const { id } = req.params;
+  const { isActive } = req.body;
+  const success = TemplateInspectorService.toggleTemplateActive(id, !!isActive);
+  res.json({ success });
+});
+
+app.delete('/api/admin/templates/:id', (req, res) => {
+  const { id } = req.params;
+  const success = TemplateInspectorService.deleteTemplate(id);
+  res.json({ success });
 });
 
 // Mobile QR Code Landing Page for Guests
@@ -333,6 +409,25 @@ io.on('connection', (socket) => {
 
   socket.on('session:done', () => {
     sessionManager.resetToIdle();
+  });
+
+  // Payment triggers
+  socket.on('payment:simulateSuccess', () => {
+    paymentManager.simulateSandboxSuccess();
+  });
+
+  socket.on('payment:applyVoucher', async (code: string) => {
+    await sessionManager.applyVoucherCode(code);
+  });
+
+  socket.on('admin:reprintSession', async (sessionId: string) => {
+    const sessionPrintPath = path.resolve(__dirname, `../../output/sessions/${sessionId}/print_4x6_2up.jpg`);
+    if (fs.existsSync(sessionPrintPath)) {
+      const res = await printerService.print(sessionPrintPath, 1);
+      socket.emit('admin:reprint_result', { sessionId, ...res });
+    } else {
+      socket.emit('admin:reprint_result', { sessionId, success: false, message: 'Print file not found' });
+    }
   });
 
   // Admin triggers

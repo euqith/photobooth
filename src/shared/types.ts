@@ -1,6 +1,8 @@
 export type PhotoboothState =
   | 'IDLE'
   | 'SELECT_TEMPLATE'
+  | 'AWAITING_PAYMENT'
+  | 'PAYMENT_SUCCESS'
   | 'LIVEVIEW_PREP'
   | 'COUNTDOWN'
   | 'CAPTURING'
@@ -10,6 +12,23 @@ export type PhotoboothState =
   | 'ERROR';
 
 export type ColorFilter = 'original' | 'bw' | 'vintage' | 'bright';
+
+export type PaymentMode = 'free' | 'paid';
+export type PaymentProviderType = 'sandbox' | 'midtrans' | 'xendit';
+export type VerificationMethod = 'polling' | 'relay';
+export type TransactionStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'VOUCHER';
+
+export interface QrisTransaction {
+  orderId: string;
+  sessionId: string;
+  amount: number;
+  qrString: string;
+  qrImageUrl?: string;
+  expiresAt: number; // timestamp ms
+  status: TransactionStatus;
+  provider: PaymentProviderType;
+  paidAt?: number;
+}
 
 export interface SlotBox {
   x: number;
@@ -31,6 +50,7 @@ export interface TemplateMetadata {
   rightSlots: SlotBox[];
   allSlots: SlotBox[];
   processedImagePath: string;
+  isActive?: boolean;
 }
 
 export interface PhotoSession {
@@ -50,6 +70,7 @@ export interface PhotoSession {
   qrCodeUrl?: string;
   printCopies: number;
   state: PhotoboothState;
+  payment?: QrisTransaction;
 }
 
 export interface CameraStatus {
@@ -69,6 +90,24 @@ export interface PrinterStatus {
   mode: 'dry-run' | 'cups' | 'windows-spooler';
 }
 
+export interface PaymentSettings {
+  mode: PaymentMode; // 'free' | 'paid'
+  provider: PaymentProviderType; // 'sandbox' | 'midtrans' | 'xendit'
+  environment: 'sandbox' | 'production';
+  sessionPrice: number; // IDR e.g. 35000
+  extraPrintPrice: number; // IDR e.g. 10000
+  qrisTimeoutSeconds: number; // e.g. 300 (5 mins)
+  verificationMethod: VerificationMethod; // 'polling' | 'relay'
+  pollingIntervalMs: number; // e.g. 2500
+  midtransServerKey: string;
+  midtransClientKey: string;
+  midtransMerchantId: string;
+  xenditApiKey: string;
+  cloudRelayUrl: string;
+  webhookSecret: string;
+  activeVouchers: string[]; // list of active promo/cash voucher codes
+}
+
 export interface ServerSettings {
   countdownDuration: number; // e.g. 5 seconds
   reviewDuration: number;    // e.g. 3 seconds
@@ -80,4 +119,5 @@ export interface ServerSettings {
   printerName: string;
   dryRunPrinter: boolean;
   cameraProvider: 'mock' | 'gphoto2' | 'edsdk';
+  payment: PaymentSettings;
 }

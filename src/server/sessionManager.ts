@@ -7,12 +7,16 @@ import { CameraManager } from './camera/cameraManager';
 import { TemplateCompositor } from './template/compositor';
 import { BoomerangService } from './template/boomerangService';
 import { PrinterService } from './printer/printerService';
+import { PaymentManager } from './payment/paymentManager';
+import { SettingsManager } from './config/settingsManager';
 
 export class SessionManager {
   private io: SocketIOServer;
   private currentSession: PhotoSession | null = null;
   private cameraManager = CameraManager.getInstance();
   private printerService = PrinterService.getInstance();
+  private paymentManager = PaymentManager.getInstance();
+  private settingsManager = SettingsManager.getInstance();
   private countdownTimer: NodeJS.Timeout | null = null;
   private countdownVal = 5;
 
@@ -86,7 +90,74 @@ export class SessionManager {
   }
 
   public async proceedToLiveView(): Promise<void> {
+    if (!this.currentSession) return;
+
+    const paymentSettings = this.settingsManager.getSettings().payment;
+    // Check if Paid Mode is enabled
+    if (paymentSettings.mode === 'paid' && (!this.currentSession.payment || this.currentSession.payment.status !== 'PAID')) {
+      await this.requestPayment();
+      return;
+    }
+
     await this.enterLiveView();
+  }
+
+  public async requestPayment(): Promise<void> {
+    if (!this.currentSession) return;
+
+    // Strict Thermal Safety: Force EVF OFF while waiting for payment
+    await this.cameraManager.stopLiveView();
+
+    try {
+      const tx = await this.paymentManager.createTransaction(this.currentSession.id);
+      this.currentSession.payment = tx;
+      this.currentSession.state = 'AWAITING_PAYMENT';
+      this.broadcastState();
+
+      // Start adaptive polling verification
+      this.paymentManager.startStatusPolling(
+        tx.orderId,
+        async () => {
+          await this.onPaymentSettled();
+        },
+        () => {
+          if (this.currentSession && this.currentSession.state === 'AWAITING_PAYMENT') {
+            this.resetToIdle();
+          }
+        }
+      );
+    } catch (err: any) {
+      console.error('[SessionManager] Payment request error:', err);
+      this.currentSession.state = 'ERROR';
+      this.broadcastState();
+    }
+  }
+
+  public async onPaymentSettled(): Promise<void> {
+    if (!this.currentSession) return;
+    if (this.currentSession.payment) {
+      this.currentSession.payment.status = 'PAID';
+    }
+    this.currentSession.state = 'PAYMENT_SUCCESS';
+    this.broadcastState();
+
+    // 1.5s celebratory delay before starting Live View
+    setTimeout(async () => {
+      if (this.currentSession && (this.currentSession.state === 'PAYMENT_SUCCESS' || this.currentSession.state === 'AWAITING_PAYMENT')) {
+        await this.enterLiveView();
+      }
+    }, 1500);
+  }
+
+  public async applyVoucherCode(code: string): Promise<boolean> {
+    if (!this.currentSession || this.currentSession.state !== 'AWAITING_PAYMENT') return false;
+    const isValid = this.settingsManager.validateVoucher(code);
+    if (isValid && this.currentSession.payment) {
+      this.paymentManager.settlePayment(this.currentSession.payment.orderId, code);
+      await this.onPaymentSettled();
+      return true;
+    }
+    return false;
   }
 
   public async enterLiveView(): Promise<void> {
@@ -97,7 +168,7 @@ export class SessionManager {
     this.updateActiveSlot();
     this.broadcastState();
 
-    // Start Live View stream
+    // Start Live View stream (Wake DSLR & Mirror UP)
     await this.cameraManager.startLiveView((frameBuffer) => {
       this.io.emit('camera:frame', frameBuffer);
     });
@@ -272,6 +343,7 @@ export class SessionManager {
 
   public resetToIdle(): void {
     this.clearCountdown();
+    this.paymentManager.cancelCurrentTransaction();
     this.cameraManager.stopLiveView().catch(() => {});
     this.currentSession = null;
     this.io.emit('session:state', {
