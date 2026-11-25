@@ -7,6 +7,7 @@ interface AdminDashboardProps {
   onSetCameraProvider: (provider: 'mock' | 'gphoto2' | 'edsdk') => void;
   onSetPrinterDryRun: (dryRun: boolean) => void;
   onTestPrint: () => void;
+  onTestShot?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -19,17 +20,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus | null>(null);
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus | null>(null);
+  const [activeProvider, setActiveProvider] = useState<'mock' | 'gphoto2'>('mock');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [testShotResult, setTestShotResult] = useState<string | null>(null);
 
   const correctPin = '1234';
 
-  useEffect(() => {
+  const fetchStatus = () => {
+    setIsRefreshing(true);
     fetch('/api/health')
       .then((res) => res.json())
       .then((data) => {
-        if (data.camera) setCameraStatus(data.camera);
+        if (data.camera) {
+          setCameraStatus(data.camera);
+          if (data.camera.model?.includes('Mock')) {
+            setActiveProvider('mock');
+          } else if (data.camera.model?.includes('gphoto2')) {
+            setActiveProvider('gphoto2');
+          }
+        }
         if (data.printer) setPrinterStatus(data.printer);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsRefreshing(false));
+  };
+
+  useEffect(() => {
+    fetchStatus();
   }, []);
 
   const handlePinSubmit = (e: React.FormEvent) => {
@@ -105,10 +122,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Camera Diagnostics Card */}
         <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <Camera className="w-6 h-6 text-pink-400" />
-              <h2 className="text-lg font-bold text-white">DSLR Camera Diagnostics</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Camera className="w-6 h-6 text-pink-400" />
+                <h2 className="text-lg font-bold text-white">DSLR Camera Diagnostics</h2>
+              </div>
+              <button
+                onClick={fetchStatus}
+                disabled={isRefreshing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-gray-300 rounded-xl transition-all"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Mengecek...' : 'Cek Ulang'}</span>
+              </button>
             </div>
+
             <div className="space-y-3 text-sm">
               <div className="flex justify-between py-2 border-b border-gray-800">
                 <span className="text-gray-400">Model:</span>
@@ -116,13 +144,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div className="flex justify-between py-2 border-b border-gray-800">
                 <span className="text-gray-400">Status USB:</span>
-                <span className="font-semibold text-green-400">Connected & Ready</span>
+                {cameraStatus?.connected ? (
+                  <span className="font-bold text-green-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                    Connected & Ready
+                  </span>
+                ) : (
+                  <span className="font-bold text-rose-500 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    Disconnected / Not Detected
+                  </span>
+                )}
               </div>
               <div className="flex justify-between py-2 border-b border-gray-800">
                 <span className="text-gray-400">Power:</span>
-                <span className="font-semibold text-yellow-300">Dummy Battery AC Adapter</span>
+                <span className="font-semibold text-yellow-300">
+                  {cameraStatus?.batteryLevel || (cameraStatus?.connected ? 'AC Dummy Battery' : 'N/A')}
+                </span>
               </div>
             </div>
+
+            {/* Error / Instruction Warning Banner if Disconnected */}
+            {!cameraStatus?.connected && activeProvider === 'gphoto2' && (
+              <div className="mt-4 p-3 bg-rose-950/50 border border-rose-800/60 rounded-xl text-xs text-rose-200">
+                <p className="font-bold mb-1">⚠️ Kamera Canon 6D Belum Terhubung:</p>
+                <ol className="list-decimal list-inside space-y-1 text-gray-300">
+                  <li>Pastikan kabel USB tercolok ke Mac dan kamera dalam posisi <strong>ON</strong>.</li>
+                  <li>Jika belum menginstal <code>gphoto2</code> di Mac, jalankan perintah: <code className="bg-black/60 px-1 py-0.5 rounded text-pink-300">brew install gphoto2</code> di terminal.</li>
+                  <li>Atau pilih tombol <strong>Mock / Webcam Simulator</strong> di bawah untuk testing tanpa kamera fisik.</li>
+                </ol>
+              </div>
+            )}
 
             <div className="mt-6">
               <label className="text-xs font-bold uppercase text-gray-400 mb-2 block">
@@ -130,18 +182,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => onSetCameraProvider('mock')}
-                  className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl text-xs font-semibold text-white border border-gray-700"
+                  onClick={() => {
+                    setActiveProvider('mock');
+                    onSetCameraProvider('mock');
+                    setTimeout(fetchStatus, 500);
+                  }}
+                  className={`py-3 px-4 rounded-xl text-xs font-bold border transition-all ${
+                    activeProvider === 'mock'
+                      ? 'bg-pink-600 text-white border-pink-500 shadow-lg shadow-pink-500/25'
+                      : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700'
+                  }`}
                 >
                   Mock / Webcam Simulator
                 </button>
                 <button
-                  onClick={() => onSetCameraProvider('gphoto2')}
-                  className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl text-xs font-semibold text-white border border-gray-700"
+                  onClick={() => {
+                    setActiveProvider('gphoto2');
+                    onSetCameraProvider('gphoto2');
+                    setTimeout(fetchStatus, 500);
+                  }}
+                  className={`py-3 px-4 rounded-xl text-xs font-bold border transition-all ${
+                    activeProvider === 'gphoto2'
+                      ? 'bg-pink-600 text-white border-pink-500 shadow-lg shadow-pink-500/25'
+                      : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700'
+                  }`}
                 >
                   Canon 6D (gphoto2 macOS)
                 </button>
               </div>
+            </div>
+
+            {/* Test Shot Button */}
+            <div className="mt-4">
+              <button
+                onClick={() => {
+                  if (onTestShot) {
+                    onTestShot();
+                    setTestShotResult('Mengambil foto uji coba...');
+                    setTimeout(() => setTestShotResult('Foto uji coba berhasil diambil!'), 1500);
+                  }
+                }}
+                className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <Camera className="w-4 h-4 text-pink-400" />
+                <span>Jepret Uji Coba (Test Shot)</span>
+              </button>
+              {testShotResult && (
+                <p className="text-[11px] text-green-400 font-mono text-center mt-2">{testShotResult}</p>
+              )}
             </div>
           </div>
         </div>

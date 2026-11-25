@@ -275,6 +275,18 @@ io.on('connection', (socket) => {
     socket.emit('admin:testPrint_result', res);
   });
 
+  socket.on('admin:testShot', async () => {
+    try {
+      const testDir = path.resolve(__dirname, '../../output');
+      fs.mkdirSync(testDir, { recursive: true });
+      const testPath = path.join(testDir, 'test_shot.jpg');
+      const res = await cameraManager.capturePhoto(testPath);
+      socket.emit('admin:testShot_result', res);
+    } catch (err: any) {
+      socket.emit('admin:testShot_result', { error: err?.message || 'Capture failed' });
+    }
+  });
+
   socket.on('admin:setPrinterDryRun', (dryRun: boolean) => {
     printerService.setDryRun(dryRun);
     socket.emit('admin:printerStatus', printerService.getStatus());

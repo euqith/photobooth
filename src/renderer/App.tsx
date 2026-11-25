@@ -178,6 +178,7 @@ export const App: React.FC = () => {
           onSetCameraProvider={(prov) => socket?.emit('admin:setCameraProvider', prov)}
           onSetPrinterDryRun={(dry) => socket?.emit('admin:setPrinterDryRun', dry)}
           onTestPrint={() => socket?.emit('admin:testPrint')}
+          onTestShot={() => socket?.emit('admin:testShot')}
         />
       )}
     </div>
