@@ -65,9 +65,10 @@ export class MidtransPaymentProvider implements IPaymentProvider {
     }
 
     const qrString = data.qr_string || '';
+    const midtransQrActionUrl = data.actions?.find((a: any) => a.name === 'generate-qr-code')?.url || '';
     const qrImageUrl = qrString
       ? await qrcode.toDataURL(qrString, { margin: 1, width: 400 })
-      : (data.actions?.find((a: any) => a.name === 'generate-qr-code')?.url || '');
+      : midtransQrActionUrl;
 
     return {
       orderId,
@@ -75,6 +76,7 @@ export class MidtransPaymentProvider implements IPaymentProvider {
       amount,
       qrString,
       qrImageUrl,
+      qrCodeUrl: midtransQrActionUrl,
       expiresAt: Date.now() + 5 * 60 * 1000,
       status: 'PENDING',
       provider: 'midtrans',

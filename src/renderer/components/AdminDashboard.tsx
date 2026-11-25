@@ -20,6 +20,16 @@ import {
   Plus,
   Play,
   AlertTriangle,
+  LayoutDashboard,
+  Cpu,
+  Copy,
+  ExternalLink,
+  Search,
+  Eye,
+  EyeOff,
+  LogOut,
+  Sliders,
+  CheckCircle,
 } from 'lucide-react';
 import {
   CameraStatus,
@@ -37,7 +47,44 @@ interface AdminDashboardProps {
   onTestShot?: () => void;
 }
 
-type AdminTab = 'payment' | 'templates' | 'transactions' | 'hardware';
+type AdminTab = 'overview' | 'payment' | 'templates' | 'transactions' | 'hardware';
+
+const DEFAULT_SETTINGS: ServerSettings = {
+  countdownDuration: 5,
+  reviewDuration: 3,
+  allowRetake: true,
+  maxRetakesPerPose: 1,
+  maxPrintCopies: 2,
+  autoPrint: false,
+  adminPin: '1234',
+  printerName: 'Default_Photo_Printer',
+  dryRunPrinter: true,
+  cameraProvider: 'gphoto2',
+  payment: {
+    mode: 'paid',
+    provider: 'midtrans',
+    environment: 'sandbox',
+    sessionPrice: 50000,
+    extraPrintPrice: 10000,
+    qrisTimeoutSeconds: 300,
+    verificationMethod: 'polling',
+    pollingIntervalMs: 2500,
+    midtransServerKey: '',
+    midtransClientKey: '',
+    midtransMerchantId: '',
+    xenditApiKey: '',
+    cloudRelayUrl: '',
+    webhookSecret: '',
+    activeVouchers: ['VIPGUEST', 'CASH01', 'PROMO2026'],
+  },
+};
+
+const getApiUrl = (endpoint: string) => {
+  if (typeof window !== 'undefined' && window.location.port === '5173') {
+    return `http://localhost:4000${endpoint}`;
+  }
+  return endpoint;
+};
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onClose,
@@ -47,7 +94,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [pin, setPin] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<AdminTab>('payment');
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
 
   // Hardware Status
   const [cameraStatus, setCameraStatus] = useState<CameraStatus | null>(null);
@@ -59,11 +106,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [cameraSwitchMessage, setCameraSwitchMessage] = useState<string | null>(null);
 
   // Settings State
-  const [settings, setSettings] = useState<ServerSettings | null>(null);
+  const [settings, setSettings] = useState<ServerSettings>(DEFAULT_SETTINGS);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null);
   const [isTestingMidtrans, setIsTestingMidtrans] = useState(false);
-  const [testMidtransResult, setTestMidtransResult] = useState<{ success: boolean; message: string; qrImageUrl?: string; qrString?: string } | null>(null);
+  const [testMidtransResult, setTestMidtransResult] = useState<{
+    success: boolean;
+    message: string;
+    orderId?: string;
+    amount?: number;
+    qrImageUrl?: string;
+    qrString?: string;
+    qrCodeUrl?: string;
+  } | null>(null);
+  const [showServerKey, setShowServerKey] = useState(false);
 
   // Voucher input temporary state
   const [newVoucherCode, setNewVoucherCode] = useState('');
@@ -78,6 +134,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Transactions State
   const [transactions, setTransactions] = useState<QrisTransaction[]>([]);
+  const [txSearch, setTxSearch] = useState('');
+  const [txFilterStatus, setTxFilterStatus] = useState<'ALL' | 'PAID' | 'PENDING' | 'VOUCHER' | 'CANCELLED'>('ALL');
   const [transactionStats, setTransactionStats] = useState({
     totalTransactions: 0,
     paidCount: 0,
@@ -85,11 +143,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     voucherCount: 0,
   });
 
+  // Current Clock
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('id-ID'));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('id-ID'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const correctPin = '1234';
 
   const fetchStatus = () => {
     setIsRefreshing(true);
-    fetch('/api/health')
+    fetch(getApiUrl('/api/health'))
       .then((res) => res.json())
       .then((data) => {
         if (data.camera) {
@@ -98,33 +166,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             setActiveProvider(data.camera.provider);
           } else if (data.camera.model?.toLowerCase().includes('mock')) {
             setActiveProvider('mock');
-          } else if (data.camera.model?.toLowerCase().includes('gphoto2') || data.camera.model?.toLowerCase().includes('canon')) {
+          } else if (
+            data.camera.model?.toLowerCase().includes('gphoto2') ||
+            data.camera.model?.toLowerCase().includes('canon')
+          ) {
             setActiveProvider('gphoto2');
           }
         }
         if (data.printer) setPrinterStatus(data.printer);
         if (data.settings) {
-          setSettings((prev) => prev || data.settings);
+          setSettings((prev) => ({ ...prev, ...data.settings }));
         }
       })
-      .catch(() => {})
+      .catch((err) => console.error('Failed to fetch health status:', err))
       .finally(() => setIsRefreshing(false));
   };
 
   const fetchSettings = () => {
-    fetch('/api/admin/settings')
+    fetch(getApiUrl('/api/admin/settings'))
       .then((res) => res.json())
       .then((data) => {
         const s = data.settings || (data.payment ? data : null);
         if (s) {
           setSettings(s);
+          if (s.cameraProvider) {
+            setActiveProvider(s.cameraProvider);
+          }
         }
       })
       .catch((err) => console.error('Gagal mengambil pengaturan:', err));
   };
 
   const fetchTemplates = () => {
-    fetch('/api/templates')
+    fetch(getApiUrl('/api/templates'))
       .then((res) => res.json())
       .then((data) => {
         if (data.templates) {
@@ -135,13 +209,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const fetchTransactions = () => {
-    fetch('/api/admin/transactions')
+    fetch(getApiUrl('/api/admin/transactions'))
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
           setTransactions(data.transactions || []);
           if (data.stats) {
-            setTransactionStats(data.stats);
+            setTransactionStats({
+              totalTransactions: data.stats.totalTransactions ?? (data.transactions?.length || 0),
+              paidCount: data.stats.paidCount ?? data.stats.count ?? 0,
+              totalGrossAmount: data.stats.totalGrossAmount ?? data.stats.totalAmount ?? 0,
+              voucherCount: data.stats.voucherCount ?? 0,
+            });
           }
         }
       })
@@ -162,7 +241,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (pin === correctPin) {
       setIsAuthenticated(true);
     } else {
-      alert('PIN Salah!');
+      alert('PIN Salah! Masukkan PIN operator yang benar.');
       setPin('');
     }
   };
@@ -172,15 +251,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsSavingSettings(true);
     setSettingsSavedMessage(null);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch(getApiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
       const data = await res.json();
       if (data.success) {
-        setSettingsSavedMessage('Pengaturan berhasil disimpan dan langsung aktif!');
-        setTimeout(() => setSettingsSavedMessage(null), 3500);
+        setSettingsSavedMessage('Pengaturan berhasil disimpan ke server!');
+        setTimeout(() => setSettingsSavedMessage(null), 4000);
       }
     } catch {
       alert('Gagal menyimpan pengaturan ke server.');
@@ -227,7 +306,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     formData.append('poseCount', String(templatePoseCount));
 
     try {
-      const res = await fetch('/api/admin/templates/upload', {
+      const res = await fetch(getApiUrl('/api/admin/templates/upload'), {
         method: 'POST',
         body: formData,
       });
@@ -249,30 +328,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleToggleTemplate = async (id: string) => {
     try {
-      await fetch(`/api/admin/templates/${id}/toggle`, { method: 'POST' });
+      await fetch(getApiUrl(`/api/admin/templates/${id}/toggle`), { method: 'POST' });
       fetchTemplates();
-    } catch (err: any) {
-      alert('Gagal mengubah status template: ' + err.message);
+    } catch (err) {
+      console.error('Gagal toggle template:', err);
     }
   };
 
   const handleDeleteTemplate = async (id: string) => {
     if (!confirm('Yakin ingin menghapus template ini?')) return;
     try {
-      await fetch(`/api/admin/templates/${id}`, { method: 'DELETE' });
+      await fetch(getApiUrl(`/api/admin/templates/${id}`), { method: 'DELETE' });
       fetchTemplates();
-    } catch (err: any) {
-      alert('Gagal menghapus template: ' + err.message);
+    } catch (err) {
+      console.error('Gagal hapus template:', err);
     }
   };
 
-  const handleTestShotClick = () => {
+  const handleTriggerTestShot = () => {
     setTestShotResult('Mengambil foto...');
-    fetch('/api/camera/test-shot', { method: 'POST' })
+    fetch(getApiUrl('/api/camera/test-shot'), { method: 'POST' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          setTestShotResult(`Sukses! File: ${data.photoPath}`);
+          setTestShotResult(`Sukses! File tersimpan: ${data.photoPath}`);
         } else {
           setTestShotResult(`Gagal: ${data.error}`);
         }
@@ -283,11 +362,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSwitchCameraProvider = async (provider: 'mock' | 'gphoto2') => {
     setActiveProvider(provider);
     setIsSwitchingCamera(true);
-    setCameraSwitchMessage(`Menghubungkan ke ${provider === 'gphoto2' ? 'Canon gphoto2' : 'Mock Camera'}...`);
+    setCameraSwitchMessage(
+      `Sedang beralih ke ${provider === 'gphoto2' ? 'Canon gphoto2' : 'Mock Camera'}...`
+    );
     onSetCameraProvider(provider);
 
     try {
-      const res = await fetch('/api/camera/provider', {
+      const res = await fetch(getApiUrl('/api/camera/provider'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider }),
@@ -301,13 +382,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setCameraSwitchMessage(
           provider === 'gphoto2'
             ? data.health.connected
-              ? 'Canon EOS 6D berhasil terhubung via gphoto2!'
-              : 'Provider gphoto2 aktif. Kamera belum terdeteksi (pastikan kabel USB terhubung & kamera menyala).'
-            : 'Mock Camera aktif (mode simulasi untuk development).'
+              ? '✅ Kamera Canon EOS 6D berhasil terhubung via gphoto2!'
+              : '⚠️ Provider gphoto2 aktif. Kamera belum terdeteksi di port USB (pastikan kamera ON).'
+            : '✅ Mock Camera aktif (simulasi development).'
         );
       }
     } catch (err: any) {
-      setCameraSwitchMessage('Gagal mengubah provider kamera: ' + err.message);
+      setCameraSwitchMessage('⚠️ Gagal mengubah provider kamera: ' + err.message);
     } finally {
       setIsSwitchingCamera(false);
       setTimeout(() => setCameraSwitchMessage(null), 5000);
@@ -316,7 +397,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSimulateWebhook = async () => {
     try {
-      const res = await fetch('/api/admin/test-webhook', { method: 'POST' });
+      const res = await fetch(getApiUrl('/api/admin/test-webhook'), { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         alert('Simulasi Webhook berhasil dikirim ke server!');
@@ -335,7 +416,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     // Save current settings first so server uses the newest key
     if (settings) {
-      await fetch('/api/admin/settings', {
+      await fetch(getApiUrl('/api/admin/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
@@ -343,14 +424,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     try {
-      const res = await fetch('/api/admin/test-midtrans', { method: 'POST' });
+      const res = await fetch(getApiUrl('/api/admin/test-midtrans'), { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setTestMidtransResult({
           success: true,
           message: data.message,
+          orderId: data.orderId,
+          amount: data.amount,
           qrImageUrl: data.qrImageUrl,
           qrString: data.qrString,
+          qrCodeUrl: data.qrCodeUrl,
         });
       } else {
         setTestMidtransResult({
@@ -368,13 +452,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const filteredTransactions = transactions.filter((t) => {
+    if (txFilterStatus !== 'ALL' && t.status !== txFilterStatus) return false;
+    if (txSearch) {
+      const q = txSearch.toLowerCase();
+      return (
+        t.orderId.toLowerCase().includes(q) ||
+        t.sessionId.toLowerCase().includes(q) ||
+        (t.amount || 0).toString().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const webhookUrl = `${window.location.protocol}//${window.location.hostname}:4000/api/payment/webhook`;
+
+  // Login Screen
   if (!isAuthenticated) {
     return (
-      <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-6">
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center">
-          <Shield className="w-14 h-14 text-pink-500 mb-3" />
-          <h2 className="text-2xl font-bold text-white mb-2">Admin Control Center</h2>
-          <p className="text-gray-400 text-xs mb-6 text-center">Masukkan 4-digit PIN operator (default: 1234)</p>
+      <div className="fixed inset-0 bg-black/90 backdrop-blur-2xl z-50 flex items-center justify-center p-6 animate-fade-in">
+        <div className="bg-[#0D121F] border border-gray-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-600 to-rose-400 p-0.5 mb-4 shadow-lg shadow-pink-500/20">
+            <div className="w-full h-full bg-[#090D16] rounded-2xl flex items-center justify-center text-pink-400">
+              <Shield className="w-8 h-8" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-1">Photobooth OS</h2>
+          <p className="text-gray-400 text-xs mb-6 text-center">
+            Admin & Kiosk Control Center (Default PIN: 1234)
+          </p>
 
           <form onSubmit={handlePinSubmit} className="w-full flex flex-col gap-4">
             <input
@@ -384,21 +490,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onChange={(e) => setPin(e.target.value)}
               placeholder="••••"
               autoFocus
-              className="w-full text-center text-3xl tracking-widest py-3 bg-gray-800 border border-gray-700 rounded-2xl text-white font-mono focus:outline-none focus:border-pink-500"
+              className="w-full text-center text-3xl tracking-widest py-3 bg-[#161F30] border border-gray-700/80 rounded-2xl text-white font-mono focus:outline-none focus:border-pink-500 shadow-inner"
             />
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-semibold text-sm cursor-pointer"
+                className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-semibold text-sm cursor-pointer transition-all"
               >
                 Batal
               </button>
               <button
                 type="submit"
-                className="flex-1 py-3 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-semibold text-sm shadow-lg shadow-pink-500/20 cursor-pointer"
+                className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white rounded-xl font-semibold text-sm shadow-lg shadow-pink-500/25 cursor-pointer transition-all"
               >
-                Masuk
+                Buka Panel
               </button>
             </div>
           </form>
@@ -408,631 +514,911 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-2xl z-50 flex items-center justify-center p-4 md:p-8 animate-fade-in">
-      <div className="bg-gray-950 border border-gray-800/80 rounded-3xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Top Header */}
-        <div className="px-6 py-4 bg-gray-900/90 border-b border-gray-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 font-bold">
-              <Settings className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-display font-black text-white">Photobooth Admin Center</h2>
-              <p className="text-gray-400 text-xs">Self-Service QRIS Gateway & Kiosk Hardware Manager</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="px-6 bg-gray-900/50 border-b border-gray-800/80 flex gap-2 shrink-0 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('payment')}
-            className={`py-3.5 px-4 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'payment'
-                ? 'border-pink-500 text-pink-400 bg-pink-500/5'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <CreditCard className="w-4 h-4" />
-            <span>Pembayaran & Webhook</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('templates')}
-            className={`py-3.5 px-4 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'templates'
-                ? 'border-pink-500 text-pink-400 bg-pink-500/5'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Template Grid Manager</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('transactions')}
-            className={`py-3.5 px-4 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'transactions'
-                ? 'border-pink-500 text-pink-400 bg-pink-500/5'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            <span>Transaksi & Sesi</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('hardware')}
-            className={`py-3.5 px-4 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'hardware'
-                ? 'border-pink-500 text-pink-400 bg-pink-500/5'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            <span>Hardware & Sistem</span>
-          </button>
-        </div>
-
-        {/* Tab Body Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* TAB 1: PEMBAYARAN & WEBHOOK */}
-          {activeTab === 'payment' && (
-            !settings ? (
-              <div className="p-16 flex flex-col items-center justify-center text-gray-400">
-                <div className="w-10 h-10 rounded-full border-4 border-pink-500 border-t-transparent animate-spin mb-4" />
-                <p className="text-sm font-semibold">Memuat Pengaturan Pembayaran & Webhook...</p>
-                <button
-                  type="button"
-                  onClick={fetchSettings}
-                  className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-pink-400 text-xs font-bold rounded-xl border border-pink-500/30 cursor-pointer"
-                >
-                  Muat Ulang Pengaturan
-                </button>
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-3 md:p-6 animate-fade-in font-sans">
+      <div className="bg-[#090D16] border border-gray-800/80 rounded-3xl w-full max-w-7xl h-[94vh] flex shadow-2xl overflow-hidden">
+        {/* ================= LEFT SIDEBAR ================= */}
+        <div className="w-64 bg-[#0D121F] border-r border-gray-800/80 flex flex-col justify-between p-4 shrink-0">
+          <div>
+            {/* Branding Header */}
+            <div className="flex items-center gap-3 px-3 py-3 mb-6 bg-[#161F30]/60 rounded-2xl border border-gray-800/80">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-600 to-rose-500 flex items-center justify-center text-white shadow-md shadow-pink-500/20 shrink-0">
+                <Sparkles className="w-5 h-5" />
               </div>
-            ) : (
-            <div className="space-y-6">
-              {settingsSavedMessage && (
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/40 rounded-2xl flex items-center gap-3 text-emerald-400 text-sm font-semibold animate-fade-in">
-                  <CheckCircle2 className="w-5 h-5 shrink-0" />
-                  <span>{settingsSavedMessage}</span>
-                </div>
-              )}
+              <div className="overflow-hidden">
+                <h1 className="text-sm font-display font-black tracking-wider text-white uppercase truncate">
+                  PHOTOBOOTH OS
+                </h1>
+                <p className="text-[11px] text-pink-400 font-mono font-semibold">Admin Center v2.0</p>
+              </div>
+            </div>
 
-              {/* General Payment Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-2xl">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">
-                    Mode Pembayaran
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSettings({
-                          ...settings,
-                          payment: { ...settings.payment, mode: 'free' },
-                        })
-                      }
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                        settings.payment.mode === 'free'
-                          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                          : 'bg-gray-800 text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      GRATIS (FREE)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSettings({
-                          ...settings,
-                          payment: { ...settings.payment, mode: 'paid' },
-                        })
-                      }
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                        settings.payment.mode === 'paid'
-                          ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
-                          : 'bg-gray-800 text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      BAYAR (PAID)
-                    </button>
+            {/* Navigation Menu */}
+            <nav className="space-y-1.5">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'overview'
+                    ? 'bg-gradient-to-r from-pink-600/90 to-rose-600/90 text-white shadow-lg shadow-pink-600/25'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4 shrink-0" />
+                <span>Ringkasan Kiosk</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('payment')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'payment'
+                    ? 'bg-gradient-to-r from-pink-600/90 to-rose-600/90 text-white shadow-lg shadow-pink-600/25'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <CreditCard className="w-4 h-4 shrink-0" />
+                <span>Pembayaran & Webhook</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'templates'
+                    ? 'bg-gradient-to-r from-pink-600/90 to-rose-600/90 text-white shadow-lg shadow-pink-600/25'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <Layers className="w-4 h-4 shrink-0" />
+                <span>Template Grid Manager</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('transactions')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'transactions'
+                    ? 'bg-gradient-to-r from-pink-600/90 to-rose-600/90 text-white shadow-lg shadow-pink-600/25'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <DollarSign className="w-4 h-4 shrink-0" />
+                <span>Transaksi & Sesi</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('hardware')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'hardware'
+                    ? 'bg-gradient-to-r from-pink-600/90 to-rose-600/90 text-white shadow-lg shadow-pink-600/25'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <Cpu className="w-4 h-4 shrink-0" />
+                <span>Hardware & Diagnostik</span>
+              </button>
+            </nav>
+          </div>
+
+          {/* Sidebar Footer */}
+          <div className="pt-4 border-t border-gray-800/80 space-y-3">
+            <div className="px-3 py-2 bg-[#161F30]/40 rounded-xl border border-gray-800/50 flex items-center justify-between text-[11px]">
+              <span className="text-gray-400">Operator:</span>
+              <span className="text-pink-400 font-bold">Admin (Kiosk Owner)</span>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 px-3 bg-gray-800/80 hover:bg-rose-950/60 hover:text-rose-300 text-gray-300 border border-gray-700/60 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Keluar / Tutup Admin</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ================= RIGHT MAIN CONTENT AREA ================= */}
+        <div className="flex-1 flex flex-col bg-[#0B0F19] overflow-hidden">
+          {/* Top Bar */}
+          <header className="px-6 py-4 bg-[#0D121F]/90 border-b border-gray-800/80 flex items-center justify-between shrink-0">
+            <div>
+              <h2 className="text-lg font-display font-black text-white flex items-center gap-2">
+                {activeTab === 'overview' && 'Ringkasan & Telemetri Kiosk'}
+                {activeTab === 'payment' && 'Konfigurasi Pembayaran & Webhook'}
+                {activeTab === 'templates' && 'Pengelola Template Grid Strip'}
+                {activeTab === 'transactions' && 'Buku Transaksi & Keuangan'}
+                {activeTab === 'hardware' && 'Status Perangkat Keras & Diagnostik'}
+              </h2>
+              <p className="text-gray-400 text-xs">
+                {activeTab === 'overview' && 'Status operasional kiosk, pendapatan harian, dan kontrol instan'}
+                {activeTab === 'payment' && 'Pengaturan Midtrans QRIS, harga sesi, webhook gateway, dan voucher'}
+                {activeTab === 'templates' && 'Upload dan kelola frame strip foto (1333x1999) dengan auto-slot'}
+                {activeTab === 'transactions' && 'Rekapitulasi pembayaran QRIS dan export data sesi photobooth'}
+                {activeTab === 'hardware' && 'Manajemen koneksi Canon DSLR EOS 6D dan printer foto dye-sublimation'}
+              </p>
+            </div>
+
+            {/* Quick Status Badges & Controls */}
+            <div className="flex items-center gap-3">
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-[#161F30] border border-gray-800 rounded-xl text-xs font-mono text-gray-300">
+                <Clock className="w-3.5 h-3.5 text-pink-400" />
+                <span>{currentTime}</span>
+              </div>
+
+              {/* Camera Pill */}
+              <div
+                className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                  cameraStatus?.connected
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
+                    : 'bg-amber-950/40 border-amber-500/40 text-amber-400'
+                }`}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    cameraStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                  }`}
+                />
+                <span>{activeProvider === 'gphoto2' ? 'Canon EOS 6D' : 'Mock Camera'}</span>
+              </div>
+
+              {/* Printer Pill */}
+              <div
+                className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                  settings.dryRunPrinter
+                    ? 'bg-amber-950/40 border-amber-500/40 text-amber-400'
+                    : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
+                }`}
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>{settings.dryRunPrinter ? 'Printer: Dry Run' : 'Printer: Siap'}</span>
+              </div>
+
+              {/* Refresh Button */}
+              <button
+                onClick={() => {
+                  fetchStatus();
+                  fetchSettings();
+                  fetchTemplates();
+                  fetchTransactions();
+                }}
+                disabled={isRefreshing}
+                className="p-2.5 bg-[#161F30] hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl border border-gray-700/60 transition-all cursor-pointer"
+                title="Segarkan Data"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-pink-400' : ''}`} />
+              </button>
+
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="p-2.5 bg-[#161F30] hover:bg-rose-900/40 text-gray-400 hover:text-rose-300 rounded-xl border border-gray-700/60 transition-all cursor-pointer"
+                title="Tutup Panel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </header>
+
+          {/* Main Content Scrollable Area */}
+          <main className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* ================= TAB 1: OVERVIEW ================= */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* 4 Metrics Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl shadow-lg relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all" />
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Total Omzet Hari Ini
+                    </span>
+                    <div className="text-2xl font-display font-black text-emerald-400 font-mono">
+                      Rp {(transactionStats.totalGrossAmount ?? 0).toLocaleString('id-ID')}
+                    </div>
+                    <span className="text-[11px] text-gray-400 mt-2 block">
+                      dari {(transactionStats.paidCount ?? 0)} sesi berbayar
+                    </span>
+                  </div>
+
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl shadow-lg relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/5 rounded-full blur-2xl group-hover:bg-pink-500/10 transition-all" />
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Transaksi Selesai
+                    </span>
+                    <div className="text-2xl font-display font-black text-white font-mono">
+                      {(transactionStats.paidCount ?? 0)} Sesi
+                    </div>
+                    <span className="text-[11px] text-emerald-400 mt-2 block flex items-center gap-1 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Pembayaran Terverifikasi
+                    </span>
+                  </div>
+
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl shadow-lg relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-all" />
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Voucher / Kasir Bypass
+                    </span>
+                    <div className="text-2xl font-display font-black text-purple-400 font-mono">
+                      {(transactionStats.voucherCount ?? 0)} Sesi
+                    </div>
+                    <span className="text-[11px] text-gray-400 mt-2 block">
+                      Kode promo / tamu VIP
+                    </span>
+                  </div>
+
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl shadow-lg relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-all" />
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Gateway Aktif
+                    </span>
+                    <div className="text-xl font-display font-black text-rose-400 capitalize">
+                      {settings.payment.mode === 'free' ? 'Mode Gratis' : `${settings.payment.provider} QRIS`}
+                    </div>
+                    <span className="text-[11px] text-gray-400 mt-2 block font-mono">
+                      Rp {(settings.payment.sessionPrice ?? 0).toLocaleString('id-ID')} / sesi
+                    </span>
                   </div>
                 </div>
 
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-2xl">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">
-                    Payment Provider
-                  </label>
-                  <select
-                    value={settings.payment.provider}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        payment: {
-                          ...settings.payment,
-                          provider: e.target.value as any,
-                        },
-                      })
-                    }
-                    className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-pink-500"
-                  >
-                    <option value="sandbox">Sandbox Simulator (Lokal Test)</option>
-                    <option value="midtrans">Midtrans Core API</option>
-                    <option value="xendit">Xendit QR Codes API</option>
-                  </select>
-                </div>
-
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-2xl">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">
-                    Harga per Sesi (IDR)
-                  </label>
-                  <input
-                    type="number"
-                    value={settings.payment.sessionPrice}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        payment: {
-                          ...settings.payment,
-                          sessionPrice: parseInt(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm font-bold font-mono focus:outline-none focus:border-pink-500"
-                  />
-                </div>
-              </div>
-
-              {/* Provider API Credentials */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-pink-400" />
-                  <span>Kredensial API Gateway ({settings.payment.provider.toUpperCase()})</span>
-                </h3>
-
-                {settings.payment.provider === 'midtrans' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <label className="text-gray-400 font-semibold block mb-1">Midtrans Server Key</label>
-                      <input
-                        type="password"
-                        value={settings.payment.midtransServerKey}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            payment: {
-                              ...settings.payment,
-                              midtransServerKey: e.target.value,
-                            },
-                          })
-                        }
-                        placeholder="SB-Mid-server-..."
-                        className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white font-mono focus:outline-none focus:border-pink-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 font-semibold block mb-1">Midtrans Client Key</label>
-                      <input
-                        type="text"
-                        value={settings.payment.midtransClientKey}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            payment: {
-                              ...settings.payment,
-                              midtransClientKey: e.target.value,
-                            },
-                          })
-                        }
-                        placeholder="SB-Mid-client-..."
-                        className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white font-mono focus:outline-none focus:border-pink-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 font-semibold block mb-1">Merchant ID</label>
-                      <input
-                        type="text"
-                        value={settings.payment.midtransMerchantId}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            payment: {
-                              ...settings.payment,
-                              midtransMerchantId: e.target.value,
-                            },
-                          })
-                        }
-                        placeholder="G123456789"
-                        className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white font-mono focus:outline-none focus:border-pink-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 pt-5">
-                      <input
-                        type="checkbox"
-                        id="midtrans-environment"
-                        checked={settings.payment.environment === 'production'}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            payment: {
-                              ...settings.payment,
-                              environment: e.target.checked ? 'production' : 'sandbox',
-                            },
-                          })
-                        }
-                        className="rounded accent-pink-500"
-                      />
-                      <label htmlFor="midtrans-environment" className="text-gray-300 font-bold">
-                        Production Mode (Live)
-                      </label>
+                {/* Quick Controls Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left: Quick Toggles */}
+                  <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sliders className="w-5 h-5 text-pink-400" />
+                      <h3 className="text-base font-bold text-white">Kontrol Cepat Kiosk</h3>
                     </div>
 
-                    <div className="md:col-span-2 pt-2 flex items-center gap-3">
+                    {/* Mode Gratis vs Berbayar */}
+                    <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-white block">Mode Operasional</span>
+                        <span className="text-xs text-gray-400">
+                          {settings.payment.mode === 'paid'
+                            ? 'Pelanggan wajib scan QRIS sebelum foto'
+                            : 'Pelanggan langsung foto tanpa pembayaran'}
+                        </span>
+                      </div>
                       <button
-                        type="button"
-                        onClick={handleTestMidtrans}
-                        disabled={isTestingMidtrans || !settings.payment.midtransServerKey}
-                        className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-pink-400 rounded-xl font-bold text-xs flex items-center gap-2 border border-pink-500/30 transition-all cursor-pointer disabled:opacity-50"
+                        onClick={() => {
+                          const newMode = settings.payment.mode === 'paid' ? 'free' : 'paid';
+                          const updated = {
+                            ...settings,
+                            payment: { ...settings.payment, mode: newMode as any },
+                          };
+                          setSettings(updated);
+                          fetch(getApiUrl('/api/admin/settings'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updated),
+                          });
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          settings.payment.mode === 'paid'
+                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                            : 'bg-gray-800 text-gray-400'
+                        }`}
                       >
-                        {isTestingMidtrans ? (
-                          <div className="w-3.5 h-3.5 rounded-full border-2 border-pink-400 border-t-transparent animate-spin" />
-                        ) : (
-                          <Play className="w-3.5 h-3.5" />
-                        )}
-                        <span>Tes API Key Midtrans (Buat QRIS Uji Coba)</span>
+                        {settings.payment.mode === 'paid' ? 'Mode Berbayar (QRIS)' : 'Mode Gratis (Event)'}
                       </button>
                     </div>
 
-                    {testMidtransResult && (
-                      <div className={`md:col-span-2 p-3 rounded-xl border text-xs font-semibold animate-fade-in flex flex-col gap-2 ${
-                        testMidtransResult.success
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                          : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          {testMidtransResult.success ? (
-                            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                          ) : (
-                            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-                          )}
-                          <span>{testMidtransResult.message}</span>
-                        </div>
-                        {testMidtransResult.qrImageUrl && (
-                          <div className="flex flex-col items-center gap-2 mt-2">
-                            <div className="p-2 bg-white rounded-xl w-36 h-36 flex items-center justify-center shadow-lg">
-                              <img src={testMidtransResult.qrImageUrl} alt="QRIS Test" className="w-full h-full object-contain" />
-                            </div>
-                            {testMidtransResult.qrString && (
-                              <div className="flex gap-2 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(testMidtransResult.qrString || '');
-                                    alert('QR String berhasil disalin!');
-                                  }}
-                                  className="py-1 px-3 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
-                                >
-                                  Salin QR String
-                                </button>
-                                <a
-                                  href="https://simulator.sandbox.midtrans.com/qris/index"
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="py-1 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-bold transition-all"
-                                >
-                                  Buka Simulator ↗
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                    {/* Printer Dry Run Toggle */}
+                    <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-white block">Mode Dry-Run Printer</span>
+                        <span className="text-xs text-gray-400">
+                          {settings.dryRunPrinter
+                            ? 'Simulasi cetak (tidak membuang kertas foto asli)'
+                            : 'Mencetak ke printer fisik secara nyata'}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {settings.payment.provider === 'xendit' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <label className="text-gray-400 font-semibold block mb-1">Xendit Secret API Key</label>
-                      <input
-                        type="password"
-                        value={settings.payment.xenditApiKey}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            payment: {
-                              ...settings.payment,
-                              xenditApiKey: e.target.value,
-                            },
-                          })
-                        }
-                        placeholder="xnd_development_..."
-                        className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white font-mono focus:outline-none focus:border-pink-500"
-                      />
+                      <button
+                        onClick={() => {
+                          const newDry = !settings.dryRunPrinter;
+                          const updated = { ...settings, dryRunPrinter: newDry };
+                          setSettings(updated);
+                          onSetPrinterDryRun(newDry);
+                          fetch(getApiUrl('/api/admin/settings'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updated),
+                          });
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          settings.dryRunPrinter
+                            ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                            : 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                        }`}
+                      >
+                        {settings.dryRunPrinter ? 'Dry-Run AKTIF' : 'Cetak Fisik REAL'}
+                      </button>
                     </div>
-                    <div>
-                      <label className="text-gray-400 font-semibold block mb-1">Webhook Secret / Verification Token</label>
-                      <input
-                        type="password"
-                        value={settings.payment.webhookSecret}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            payment: {
-                              ...settings.payment,
-                              webhookSecret: e.target.value,
-                            },
-                          })
-                        }
-                        placeholder="Verifikasi signature webhook"
-                        className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white font-mono focus:outline-none focus:border-pink-500"
-                      />
+
+                    {/* Camera Provider Toggle */}
+                    <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-white block">Provider Kamera</span>
+                        <span className="text-xs text-gray-400">
+                          {activeProvider === 'gphoto2' ? 'Canon EOS 6D via USB gphoto2' : 'Mock Camera Simulator'}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSwitchCameraProvider('mock')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            activeProvider === 'mock'
+                              ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                              : 'bg-gray-800 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          Mock
+                        </button>
+                        <button
+                          onClick={() => handleSwitchCameraProvider('gphoto2')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            activeProvider === 'gphoto2'
+                              ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                              : 'bg-gray-800 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          Canon gphoto2
+                        </button>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                {settings.payment.provider === 'sandbox' && (
-                  <p className="text-xs text-amber-400 font-medium bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
-                    Mode Sandbox aktif: QRIS dihasilkan secara lokal tanpa memerlukan akun payment gateway.
-                    Tersedia tombol "Simulasikan Pembayaran Berhasil" di layar QRIS untuk pengujian instan.
-                  </p>
-                )}
+                  {/* Right: Active Template Peek */}
+                  <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-5 h-5 text-pink-400" />
+                          <h3 className="text-base font-bold text-white">Template Aktif ({templates.length})</h3>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('templates')}
+                          className="text-xs text-pink-400 hover:text-pink-300 font-bold"
+                        >
+                          Kelola Semua →
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        {templates.slice(0, 3).map((tpl) => (
+                          <div
+                            key={tpl.id}
+                            className="p-3 bg-[#161F30] border border-gray-800 rounded-2xl flex flex-col items-center text-center"
+                          >
+                            <img
+                              src={`/api/templates/${tpl.id}/preview`}
+                              alt={tpl.title}
+                              className="h-28 object-contain rounded-lg mb-2 bg-black/40 p-1"
+                            />
+                            <span className="text-xs font-bold text-white truncate w-full">{tpl.title}</span>
+                            <span className="text-[10px] text-pink-400 font-mono mt-0.5">
+                              {tpl.poseCount} Pose ({tpl.allSlots?.length || 0} Kotak)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#161F30]/60 border border-gray-800 rounded-2xl flex items-center justify-between text-xs">
+                      <span className="text-gray-400">Ingin menambahkan template baru?</span>
+                      <button
+                        onClick={() => setActiveTab('templates')}
+                        className="px-3 py-1.5 bg-pink-600/90 hover:bg-pink-500 text-white font-bold rounded-xl transition-all"
+                      >
+                        Upload PNG
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
+            )}
 
-              {/* Hybrid Webhook & Cloud Relay Config */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-pink-400" />
-                  <span>NAT Traversal & Polling Status Hybrid</span>
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="text-gray-400 font-semibold block mb-1">
-                      Metode Verifikasi
-                    </label>
-                    <select
-                      value={settings.payment.verificationMethod}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          payment: {
-                            ...settings.payment,
-                            verificationMethod: e.target.value as any,
-                          },
-                        })
-                      }
-                      className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-pink-500"
+            {/* ================= TAB 2: PEMBAYARAN & WEBHOOK ================= */}
+            {activeTab === 'payment' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Save Notification Banner */}
+                {settingsSavedMessage && (
+                  <div className="p-4 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl text-emerald-300 text-xs font-semibold animate-fade-in flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <span>{settingsSavedMessage}</span>
+                  </div>
+                )}
+
+                {/* Gateway Configuration Card */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-6">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Konfigurasi Gateway & Tarif</h3>
+                        <p className="text-xs text-gray-400">Atur provider pembayaran, tarif sesi, dan API keys</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={isSavingSettings}
+                      className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-pink-600/30 flex items-center gap-2 cursor-pointer"
                     >
-                      <option value="polling">HTTP Polling Otomatis (Rekomendasi Tanpa NAT/VPS)</option>
-                      <option value="relay">Cloud Relay Server (Webhook Teruskan ke WS)</option>
-                    </select>
+                      {isSavingSettings ? (
+                        <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
+                      <span>Simpan Perubahan</span>
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-gray-400 font-semibold block mb-1">
-                      Interval Polling (ms)
-                    </label>
-                    <input
-                      type="number"
-                      step={500}
-                      min={1000}
-                      value={settings.payment.pollingIntervalMs}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          payment: {
-                            ...settings.payment,
-                            pollingIntervalMs: parseInt(e.target.value) || 2500,
-                          },
-                        })
-                      }
-                      className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white font-mono focus:outline-none focus:border-pink-500"
-                    />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {/* Mode Operasional */}
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                        Mode Operasi Kiosk
+                      </label>
+                      <select
+                        value={settings.payment.mode}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            payment: { ...settings.payment, mode: e.target.value as any },
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-sm font-semibold focus:outline-none focus:border-pink-500"
+                      >
+                        <option value="paid">Berbayar (Wajib QRIS Sebelum Foto)</option>
+                        <option value="free">Gratis (Free Photo Event)</option>
+                      </select>
+                    </div>
+
+                    {/* Provider */}
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                        Payment Gateway Provider
+                      </label>
+                      <select
+                        value={settings.payment.provider}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            payment: { ...settings.payment, provider: e.target.value as any },
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-sm font-semibold focus:outline-none focus:border-pink-500"
+                      >
+                        <option value="midtrans">Midtrans QRIS (GoPay, BCA, ShopeePay, dll)</option>
+                        <option value="xendit">Xendit QRIS</option>
+                        <option value="sandbox">Sandbox Mock Simulator (Internal Test)</option>
+                      </select>
+                    </div>
+
+                    {/* Environment */}
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                        Environment
+                      </label>
+                      <select
+                        value={settings.payment.environment}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            payment: { ...settings.payment, environment: e.target.value as any },
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-sm font-semibold focus:outline-none focus:border-pink-500"
+                      >
+                        <option value="sandbox">Sandbox (Testing / Simulator)</option>
+                        <option value="production">Production (Real Commercial Settlement)</option>
+                      </select>
+                    </div>
+
+                    {/* Session Price */}
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                        Tarif per Sesi Foto (IDR)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-3 text-sm text-gray-400 font-bold">Rp</span>
+                        <input
+                          type="number"
+                          step={1000}
+                          value={settings.payment.sessionPrice}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: { ...settings.payment, sessionPrice: parseInt(e.target.value) || 0 },
+                            })
+                          }
+                          className="w-full pl-12 pr-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-sm font-mono font-bold focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Extra Print Price */}
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                        Tarif Tambah Cetakan (IDR)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-3 text-sm text-gray-400 font-bold">Rp</span>
+                        <input
+                          type="number"
+                          step={1000}
+                          value={settings.payment.extraPrintPrice}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: { ...settings.payment, extraPrintPrice: parseInt(e.target.value) || 0 },
+                            })
+                          }
+                          className="w-full pl-12 pr-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-sm font-mono font-bold focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* QRIS Timeout */}
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                        Batas Waktu QRIS (Detik)
+                      </label>
+                      <input
+                        type="number"
+                        value={settings.payment.qrisTimeoutSeconds}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            payment: { ...settings.payment, qrisTimeoutSeconds: parseInt(e.target.value) || 300 },
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-sm font-mono focus:outline-none focus:border-pink-500"
+                      />
+                    </div>
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="text-gray-400 font-semibold block mb-1">
-                      Cloud Relay URL (Opsional jika menggunakan VPS / Cloudflare Tunnel)
-                    </label>
+
+                  {/* Midtrans API Keys */}
+                  <div className="pt-4 border-t border-gray-800 space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-pink-400">
+                      Kredensial API Midtrans
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs text-gray-400 font-semibold">Midtrans Server Key</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowServerKey(!showServerKey)}
+                            className="text-[11px] text-pink-400 hover:text-pink-300 flex items-center gap-1"
+                          >
+                            {showServerKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            <span>{showServerKey ? 'Sembunyikan' : 'Lihat'}</span>
+                          </button>
+                        </div>
+                        <input
+                          type={showServerKey ? 'text' : 'password'}
+                          value={settings.payment.midtransServerKey}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: { ...settings.payment, midtransServerKey: e.target.value },
+                            })
+                          }
+                          placeholder="SB-Mid-server-..."
+                          className="w-full px-4 py-2.5 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-400 font-semibold block mb-1.5">
+                          Midtrans Client Key
+                        </label>
+                        <input
+                          type="text"
+                          value={settings.payment.midtransClientKey}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: { ...settings.payment, midtransClientKey: e.target.value },
+                            })
+                          }
+                          placeholder="SB-Mid-client-..."
+                          className="w-full px-4 py-2.5 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-400 font-semibold block mb-1.5">
+                          Midtrans Merchant ID
+                        </label>
+                        <input
+                          type="text"
+                          value={settings.payment.midtransMerchantId}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: { ...settings.payment, midtransMerchantId: e.target.value },
+                            })
+                          }
+                          placeholder="M03945..."
+                          className="w-full px-4 py-2.5 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1-Click Midtrans API Tester & Simulator Diagnostic */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <Play className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Uji Koneksi Midtrans & Simulator QRIS</h3>
+                        <p className="text-xs text-gray-400">
+                          Tes keaslian Server Key langsung ke API Midtrans dan dapatkan URL simulator
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleTestMidtrans}
+                      disabled={isTestingMidtrans}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/30 flex items-center gap-2 cursor-pointer"
+                    >
+                      {isTestingMidtrans ? (
+                        <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
+                      <span>Test Koneksi Midtrans Sekarang</span>
+                    </button>
+                  </div>
+
+                  {testMidtransResult && (
+                    <div
+                      className={`p-4 rounded-2xl border ${
+                        testMidtransResult.success
+                          ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                          : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                      }`}
+                    >
+                      <p className="text-xs font-bold mb-3">{testMidtransResult.message}</p>
+
+                      {testMidtransResult.success && (
+                        <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-[#090D16] border border-gray-800 rounded-2xl">
+                          {testMidtransResult.qrImageUrl && (
+                            <img
+                              src={testMidtransResult.qrImageUrl}
+                              alt="Diagnostic QRIS"
+                              className="w-40 h-40 bg-white p-2 rounded-xl object-contain shadow-lg"
+                            />
+                          )}
+
+                          <div className="space-y-3 flex-1 w-full text-xs">
+                            <div>
+                              <span className="text-gray-400 block font-semibold">Order ID Uji Coba:</span>
+                              <span className="font-mono text-white font-bold">{testMidtransResult.orderId}</span>
+                            </div>
+
+                            <div>
+                              <span className="text-gray-400 block font-semibold">Nominal Sesi:</span>
+                              <span className="font-mono text-emerald-400 font-bold">
+                                Rp {(testMidtransResult.amount ?? settings.payment.sessionPrice).toLocaleString('id-ID')}
+                              </span>
+                            </div>
+
+                            {/* Simulator URL Copy Button */}
+                            <div className="pt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const urlToCopy = testMidtransResult.qrCodeUrl || testMidtransResult.qrString || '';
+                                  navigator.clipboard.writeText(urlToCopy);
+                                  alert(
+                                    '✅ URL QRIS Berhasil Disalin!\n\n' +
+                                    'Langkah selanjutnya:\n' +
+                                    '1. Buka link simulator Midtrans\n' +
+                                    '2. Paste ke kolom "QR Code URL"\n' +
+                                    '3. Klik Pay untuk verifikasi pembayaran.'
+                                  );
+                                }}
+                                className="px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-pink-600/30"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Salin URL QRIS (Untuk Simulator)</span>
+                              </button>
+
+                              <a
+                                href="https://simulator.sandbox.midtrans.com/qris/index"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700 rounded-xl font-bold flex items-center gap-1.5 transition-all"
+                              >
+                                <span>Buka Simulator Midtrans</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+
+                            <p className="text-[11px] text-gray-400">
+                              💡 <em>Catatan:</em> Midtrans Simulator memerlukan <strong>QR Code URL</strong> (bukan string teks angka) agar tidak muncul error <code>QR inputted unparsable</code>.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Webhook Gateway Notification URL */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-white">Webhook Notification URL</h3>
+                      <p className="text-xs text-gray-400">
+                        URL ini didaftarkan di Dashboard Midtrans (MAP) agar transaksi settled secara real-time
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSimulateWebhook}
+                      className="px-3.5 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl text-xs font-bold border border-gray-700/60 transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Kirim Simulasi Webhook Ping</span>
+                    </button>
+                  </div>
+
+                  <div className="p-4 bg-[#090D16] border border-gray-800 rounded-2xl flex items-center justify-between gap-4">
+                    <code className="text-xs text-pink-300 font-mono select-all truncate">{webhookUrl}</code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(webhookUrl);
+                        alert('URL Webhook berhasil disalin ke clipboard!');
+                      }}
+                      className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Salin URL</span>
+                    </button>
+                  </div>
+
+                  <div className="p-4 bg-blue-950/30 border border-blue-500/30 rounded-2xl text-xs text-blue-300 leading-relaxed space-y-1">
+                    <p className="font-bold">Panduan Pengaturan di Midtrans MAP:</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-blue-200">
+                      <li>Buka <strong>dashboard.midtrans.com</strong> &gt; Settings &gt; Configuration.</li>
+                      <li>Di bagian <strong>Payment Notification URL</strong>, tempelkan URL webhook di atas.</li>
+                      <li>Jika menggunakan server lokal tanpa IP publik, gunakan tunnel relay (Cloudflare / ngrok).</li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* Voucher Codes Management */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-white">Voucher Promo & PIN Kasir Tunai</h3>
+                      <p className="text-xs text-gray-400">Kode kupon yang dapat digunakan pelanggan untuk bypass pembayaran</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
                     <input
                       type="text"
-                      value={settings.payment.cloudRelayUrl}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          payment: {
-                            ...settings.payment,
-                            cloudRelayUrl: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="https://relay.photobooth.domain/webhook/midtrans"
-                      className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white font-mono focus:outline-none focus:border-pink-500"
+                      placeholder="Contoh: VIPFREE, PROMO50, CASH01"
+                      value={newVoucherCode}
+                      onChange={(e) => setNewVoucherCode(e.target.value)}
+                      className="flex-1 px-4 py-2.5 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs font-mono uppercase focus:outline-none focus:border-pink-500"
                     />
+                    <button
+                      type="button"
+                      onClick={handleAddVoucher}
+                      className="px-4 py-2.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-pink-600/30"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Tambah Kode</span>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {settings.payment.activeVouchers?.map((code) => (
+                      <div
+                        key={code}
+                        className="px-3.5 py-1.5 bg-[#161F30] border border-pink-500/30 rounded-xl text-xs font-mono font-bold text-pink-300 flex items-center gap-2"
+                      >
+                        <span>{code}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVoucher(code)}
+                          className="hover:text-rose-400 transition-colors cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSimulateWebhook}
-                    className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-pink-400 rounded-xl font-bold text-xs flex items-center gap-2 border border-pink-500/30 transition-all cursor-pointer"
-                  >
-                    <Play className="w-4 h-4" />
-                    <span>Tes Kirim Webhook Lokal</span>
-                  </button>
-                </div>
               </div>
+            )}
 
-              {/* Webhook Configuration & URL Display Card */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <RotateCcw className="w-4 h-4 text-pink-400" />
-                    <span>URL Webhook Callback Gateway</span>
-                  </h3>
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
-                    AKTIF & SIAP MENERIMA
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400">
-                  Salin URL ini ke dashboard Midtrans (Settings → Configuration → Payment Notification URL) atau Xendit (Settings → Callbacks) agar notifikasi pembayaran langsung masuk ke photobooth:
-                </p>
-                <div className="p-3 bg-gray-950 border border-gray-800 rounded-xl flex items-center justify-between gap-3">
-                  <span className="font-mono text-xs text-pink-400 select-all font-semibold truncate">
-                    {`http://${window.location.hostname || 'localhost'}:3000/api/payment/webhook`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`http://${window.location.hostname || 'localhost'}:3000/api/payment/webhook`);
-                      alert('URL Webhook berhasil disalin!');
-                    }}
-                    className="py-1 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white rounded-lg text-xs font-bold border border-gray-700 shrink-0 transition-all cursor-pointer"
-                  >
-                    Salin URL
-                  </button>
-                </div>
-              </div>
-
-              {/* Voucher Management */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-pink-400" />
-                  <span>Manajemen Voucher Diskon / Bypass Kasir (100% Free Pass)</span>
-                </h3>
-
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    placeholder="KODE VOUCHER (e.g. VIP2026)"
-                    value={newVoucherCode}
-                    onChange={(e) => setNewVoucherCode(e.target.value.toUpperCase())}
-                    className="py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-xs font-mono font-bold uppercase focus:outline-none focus:border-pink-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddVoucher}
-                    className="py-2 px-4 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold text-xs flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Tambah Voucher</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {settings.payment.activeVouchers.map((code) => (
-                    <div
-                      key={code}
-                      className="px-3 py-1.5 bg-gray-800/80 border border-gray-700/60 rounded-xl flex items-center gap-2"
-                    >
-                      <span className="font-mono font-black text-pink-400 text-xs tracking-wider">
-                        {code}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVoucher(code)}
-                        className="text-gray-400 hover:text-rose-400 p-0.5 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+            {/* ================= TAB 3: TEMPLATES ================= */}
+            {activeTab === 'templates' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Upload Card */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
+                  <div className="flex items-center gap-3 border-b border-gray-800 pb-4">
+                    <div className="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                      <Upload className="w-5 h-5" />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Save Settings Action Bar */}
-              <div className="sticky bottom-0 bg-gray-950/90 backdrop-blur-md p-4 border-t border-gray-800 flex justify-end gap-3 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={handleSaveSettings}
-                  disabled={isSavingSettings}
-                  className="py-3 px-8 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white rounded-xl font-bold text-sm shadow-xl shadow-pink-600/30 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isSavingSettings ? (
-                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  <span>Simpan Perubahan Pengaturan</span>
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {/* TAB 2: TEMPLATE GRID MANAGER */}
-          {activeTab === 'templates' && (
-            <div className="space-y-6">
-              {templateUploadMessage && (
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/40 rounded-2xl flex items-center gap-3 text-emerald-400 text-sm font-semibold animate-fade-in">
-                  <CheckCircle2 className="w-5 h-5 shrink-0" />
-                  <span>{templateUploadMessage}</span>
-                </div>
-              )}
-
-              {/* Upload New Template Form */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <Upload className="w-4 h-4 text-pink-400" />
-                  <span>Unggah Desain Template Baru (Otomatis Slot Detection)</span>
-                </h3>
-                <p className="text-xs text-gray-400">
-                  Format gambar: PNG 1333x1999 (4R 2-up Strip). Area lubang foto bisa berupa warna hijau Chroma-Key (#00FF00) atau transparan (Alpha 0). Sistem akan mendeteksi koordinat slot kiri & kanan secara otomatis.
-                </p>
-
-                <form onSubmit={handleUploadTemplate} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-gray-400 block mb-1">
-                        Pilih File Template (.png)
+                      <h3 className="text-base font-bold text-white">Upload Template Strip Foto Baru</h3>
+                      <p className="text-xs text-gray-400">
+                        Format PNG transparan 1333x1999 piksel (standar cetak foto strip 4x6 inci 2-up)
+                      </p>
+                    </div>
+                  </div>
+
+                  {templateUploadMessage && (
+                    <div className="p-4 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl text-emerald-300 text-xs font-semibold animate-fade-in flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                      <span>{templateUploadMessage}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleUploadTemplate} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                          Nama / Judul Template
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Elegant Vintage Floral Strip"
+                          value={templateTitle}
+                          onChange={(e) => setTemplateTitle(e.target.value)}
+                          className="w-full px-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                          Jumlah Pose Pengambilan
+                        </label>
+                        <select
+                          value={templatePoseCount}
+                          onChange={(e) => setTemplatePoseCount(parseInt(e.target.value) || 3)}
+                          className="w-full px-4 py-3 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-pink-500"
+                        >
+                          <option value={3}>3 Pose (Standar 3 Kotak per strip)</option>
+                          <option value={4}>4 Pose (4 Kotak per strip)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold uppercase tracking-wider block mb-2">
+                        Pilih File PNG Transparan
                       </label>
                       <input
                         type="file"
                         accept="image/png"
-                        onChange={(e) => setTemplateFile(e.target.files?.[0] || null)}
-                        className="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gray-800 file:text-pink-400 hover:file:bg-gray-700 cursor-pointer"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setTemplateFile(e.target.files[0]);
+                          }
+                        }}
+                        className="w-full px-4 py-3 bg-[#161F30] border border-dashed border-gray-700 rounded-xl text-gray-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-pink-600 file:text-white hover:file:bg-pink-500 cursor-pointer"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-400 block mb-1">
-                        Judul Template
-                      </label>
-                      <input
-                        type="text"
-                        value={templateTitle}
-                        onChange={(e) => setTemplateTitle(e.target.value)}
-                        placeholder="Contoh: Neon Vintage Strip"
-                        className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-pink-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-400 block mb-1">
-                        Jumlah Pose Foto
-                      </label>
-                      <select
-                        value={templatePoseCount}
-                        onChange={(e) => setTemplatePoseCount(parseInt(e.target.value) || 3)}
-                        className="w-full py-2 px-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-pink-500"
-                      >
-                        <option value={3}>3 Pose (Standar Strip)</option>
-                        <option value={4}>4 Pose (Mini Strip)</option>
-                        <option value={2}>2 Pose (Wide)</option>
-                      </select>
-                    </div>
-                  </div>
 
-                  <div className="flex justify-end">
                     <button
                       type="submit"
                       disabled={isUploadingTemplate || !templateFile}
-                      className="py-2.5 px-6 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="px-6 py-3 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-pink-600/30 flex items-center gap-2 cursor-pointer"
                     >
                       {isUploadingTemplate ? (
                         <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
@@ -1041,331 +1427,365 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       )}
                       <span>Proses & Simpan Template</span>
                     </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* List of Active Templates */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-pink-400" />
-                    <span>Daftar Template Aktif ({templates.length})</span>
-                  </h3>
-                  <button
-                    onClick={fetchTemplates}
-                    className="p-1.5 text-gray-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
+                  </form>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {templates.map((tpl) => (
-                    <div
-                      key={tpl.id}
-                      className="group relative bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden flex flex-col p-2.5 hover:border-pink-500/50 transition-all"
-                    >
-                      <div className="aspect-[2/3] w-full bg-black/60 rounded-xl overflow-hidden relative flex items-center justify-center mb-2">
-                        <img
-                          src={tpl.processedImagePath || `/templates/${tpl.filename}`}
-                          alt={tpl.title}
-                          className="w-full h-full object-contain"
-                        />
-                        <span className="absolute top-2 right-2 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-pink-400">
-                          {tpl.poseCount} Poses
-                        </span>
-                      </div>
+                {/* Templates List */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">
+                    Daftar Template Tersedia ({templates.length})
+                  </h3>
 
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <h4 className="text-xs font-black text-white truncate">{tpl.title}</h4>
-                          <p className="text-[10px] text-gray-400">
-                            Slot: {tpl.leftSlots?.length || 0} kiri / {tpl.rightSlots?.length || 0} kanan
-                          </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {templates.map((tpl) => (
+                      <div
+                        key={tpl.id}
+                        className="p-4 bg-[#111827] border border-gray-800/80 rounded-3xl flex flex-col justify-between space-y-4 shadow-lg hover:border-pink-500/40 transition-all"
+                      >
+                        <div className="flex gap-4 items-start">
+                          <img
+                            src={`/api/templates/${tpl.id}/preview`}
+                            alt={tpl.title}
+                            className="w-24 h-36 object-contain rounded-xl bg-black/50 p-1 shrink-0 border border-gray-800"
+                          />
+                          <div className="flex-1 overflow-hidden">
+                            <h4 className="text-sm font-bold text-white truncate">{tpl.title}</h4>
+                            <span className="text-[11px] text-pink-400 font-mono font-semibold block mt-0.5">
+                              {tpl.poseCount} Pose ({tpl.allSlots?.length || 0} Slots)
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-mono block mt-1">
+                              Canvas: {tpl.canvasWidth}x{tpl.canvasHeight}px
+                            </span>
+                            <span className="text-[10px] text-gray-500 truncate block mt-0.5">
+                              {tpl.filename}
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-800">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-800">
                           <button
                             type="button"
                             onClick={() => handleToggleTemplate(tpl.id)}
-                            className="text-[11px] font-bold text-gray-400 hover:text-white transition-colors cursor-pointer"
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              tpl.isActive !== false
+                                ? 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-400'
+                                : 'bg-gray-800 text-gray-400'
+                            }`}
                           >
-                            Aktif
+                            {tpl.isActive !== false ? 'Aktif' : 'Nonaktif'}
                           </button>
+
                           <button
                             type="button"
                             onClick={() => handleDeleteTemplate(tpl.id)}
-                            className="text-gray-500 hover:text-rose-400 transition-colors cursor-pointer"
+                            className="p-2 text-gray-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-all cursor-pointer"
+                            title="Hapus Template"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================= TAB 4: TRANSAKSI & SESI ================= */}
+            {activeTab === 'transactions' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Metrics Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl">
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Total Omzet (Settle)
+                    </span>
+                    <div className="text-2xl font-display font-black text-emerald-400 font-mono">
+                      Rp {(transactionStats?.totalGrossAmount ?? 0).toLocaleString('id-ID')}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+                  </div>
 
-          {/* TAB 3: TRANSAKSI & SESI */}
-          {activeTab === 'transactions' && (
-            <div className="space-y-6">
-              {/* Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-2xl">
-                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">
-                    Total Omzet (Settle)
-                  </span>
-                  <div className="text-2xl font-display font-black text-emerald-400 font-mono">
-                    Rp {transactionStats.totalGrossAmount.toLocaleString('id-ID')}
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl">
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Transaksi Selesai
+                    </span>
+                    <div className="text-2xl font-display font-black text-white font-mono">
+                      {(transactionStats?.paidCount ?? 0)} Sesi
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl">
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Voucher / Kasir Bypass
+                    </span>
+                    <div className="text-2xl font-display font-black text-pink-400 font-mono">
+                      {(transactionStats?.voucherCount ?? 0)} Sesi
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-[#111827] border border-gray-800/80 rounded-2xl">
+                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                      Total Upaya Transaksi
+                    </span>
+                    <div className="text-2xl font-display font-black text-gray-300 font-mono">
+                      {(transactionStats?.totalTransactions ?? transactions.length)}
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-2xl">
-                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">
-                    Transaksi Sukses
-                  </span>
-                  <div className="text-2xl font-display font-black text-white font-mono">
-                    {transactionStats.paidCount} Sesi
-                  </div>
-                </div>
+                {/* Filter and Export Bar */}
+                <div className="p-4 bg-[#111827] border border-gray-800/80 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-64">
+                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        placeholder="Cari Order / Sesi ID..."
+                        value={txSearch}
+                        onChange={(e) => setTxSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs focus:outline-none focus:border-pink-500"
+                      />
+                    </div>
 
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-2xl">
-                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">
-                    Voucher / Kasir Bypass
-                  </span>
-                  <div className="text-2xl font-display font-black text-pink-400 font-mono">
-                    {transactionStats.voucherCount} Penggunaan
-                  </div>
-                </div>
-
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-2xl">
-                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">
-                    Total Upaya Bayar
-                  </span>
-                  <div className="text-2xl font-display font-black text-gray-300 font-mono">
-                    {transactionStats.totalTransactions}
-                  </div>
-                </div>
-              </div>
-
-              {/* Transactions Table & Export */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-pink-400" />
-                    <span>Riwayat Transaksi QRIS Terakhir</span>
-                  </h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={fetchTransactions}
-                      className="p-2 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                    <select
+                      value={txFilterStatus}
+                      onChange={(e) => setTxFilterStatus(e.target.value as any)}
+                      className="px-3 py-2 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-pink-500"
                     >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                    <a
-                      href="/api/admin/transactions?export=csv"
-                      download="photobooth_transactions.csv"
-                      className="py-1.5 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-gray-700 transition-all"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Ekspor CSV</span>
-                    </a>
+                      <option value="ALL">Semua Status</option>
+                      <option value="PAID">PAID (Sukses)</option>
+                      <option value="PENDING">PENDING</option>
+                      <option value="VOUCHER">VOUCHER</option>
+                      <option value="CANCELLED">CANCELLED</option>
+                    </select>
                   </div>
+
+                  <a
+                    href={getApiUrl('/api/admin/transactions?export=csv')}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700/80 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-pink-400" />
+                    <span>Download Laporan CSV</span>
+                  </a>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-800 text-gray-400 uppercase tracking-wider font-bold">
-                        <th className="py-2.5 px-3">Order ID</th>
-                        <th className="py-2.5 px-3">Sesi</th>
-                        <th className="py-2.5 px-3">Nominal</th>
-                        <th className="py-2.5 px-3">Metode</th>
-                        <th className="py-2.5 px-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800/60 font-mono">
-                      {transactions.length === 0 ? (
+                {/* Ledger Table */}
+                <div className="bg-[#111827] border border-gray-800/80 rounded-3xl overflow-hidden shadow-lg">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#161F30] text-gray-400 uppercase font-mono tracking-wider border-b border-gray-800">
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-gray-500 font-sans">
-                            Belum ada transaksi tercatat.
-                          </td>
+                          <th className="py-3 px-4">Waktu</th>
+                          <th className="py-3 px-4">Order ID</th>
+                          <th className="py-3 px-4">Session ID</th>
+                          <th className="py-3 px-4">Provider</th>
+                          <th className="py-3 px-4">Nominal</th>
+                          <th className="py-3 px-4">Status</th>
                         </tr>
-                      ) : (
-                        transactions.map((tx) => (
-                          <tr key={tx.orderId} className="hover:bg-gray-800/30 transition-colors">
-                            <td className="py-2.5 px-3 text-white font-bold">{tx.orderId}</td>
-                            <td className="py-2.5 px-3 text-gray-400">{tx.sessionId}</td>
-                            <td className="py-2.5 px-3 text-white">
-                              Rp {tx.amount.toLocaleString('id-ID')}
-                            </td>
-                            <td className="py-2.5 px-3 uppercase text-[10px] text-pink-400 font-sans font-bold">
-                              {tx.provider}
-                            </td>
-                            <td className="py-2.5 px-3 font-sans">
-                              {tx.status === 'PAID' ? (
-                                <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                  SETTLED
-                                </span>
-                              ) : tx.status === 'PENDING' ? (
-                                <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                  PENDING
-                                </span>
-                              ) : (
-                                <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                  {tx.status}
-                                </span>
-                              )}
+                      </thead>
+                      <tbody className="divide-y divide-gray-800/60 font-mono">
+                        {filteredTransactions.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-gray-500 italic">
+                              Tidak ada riwayat transaksi yang cocok.
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          filteredTransactions.map((tx) => (
+                            <tr key={tx.orderId} className="hover:bg-[#161F30]/40 transition-colors">
+                              <td className="py-3 px-4 text-gray-400">
+                                {new Date(tx.paidAt || tx.expiresAt).toLocaleTimeString('id-ID')}
+                              </td>
+                              <td className="py-3 px-4 font-bold text-white">{tx.orderId}</td>
+                              <td className="py-3 px-4 text-gray-400 truncate max-w-[120px]">{tx.sessionId}</td>
+                              <td className="py-3 px-4 uppercase text-gray-400">{tx.provider}</td>
+                              <td className="py-3 px-4 text-emerald-400 font-bold">
+                                Rp {(tx.amount ?? 0).toLocaleString('id-ID')}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+                                    tx.status === 'PAID'
+                                      ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/40'
+                                      : tx.status === 'VOUCHER'
+                                      ? 'bg-purple-950/60 text-purple-400 border border-purple-500/40'
+                                      : tx.status === 'PENDING'
+                                      ? 'bg-amber-950/60 text-amber-400 border border-amber-500/40'
+                                      : 'bg-rose-950/60 text-rose-400 border border-rose-500/40'
+                                  }`}
+                                >
+                                  {tx.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 4: HARDWARE & SISTEM */}
-          {activeTab === 'hardware' && (
-            <div className="space-y-6">
-              {/* Camera Section */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Camera className="w-5 h-5 text-pink-400" />
-                    <div>
-                      <h3 className="text-sm font-bold text-white">Kamera DSLR Canon</h3>
-                      <p className="text-xs text-gray-400">
-                        {cameraStatus?.model || 'Memeriksa perangkat...'}
-                      </p>
+            {/* ================= TAB 5: HARDWARE ================= */}
+            {activeTab === 'hardware' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Camera Card */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Kamera DSLR Canon</h3>
+                        <p className="text-xs text-gray-400 font-mono">
+                          {cameraStatus?.model || 'Simulated Canon EOS 6D'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
+
                     <span
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        cameraStatus?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                      className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 ${
+                        cameraStatus?.connected
+                          ? 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-400'
+                          : 'bg-amber-950/60 border border-amber-500/40 text-amber-400'
                       }`}
-                    />
-                    <span className="text-xs font-bold text-gray-300">
-                      {cameraStatus?.connected ? 'TERHUBUNG' : 'TERPUTUS'}
+                    >
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          cameraStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                        }`}
+                      />
+                      <span>{cameraStatus?.connected ? 'TERHUBUNG' : 'DISCONNECTED'}</span>
                     </span>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <button
-                    onClick={() => handleSwitchCameraProvider('mock')}
-                    disabled={isSwitchingCamera}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                      activeProvider === 'mock'
-                        ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
-                        : 'bg-gray-800 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {isSwitchingCamera && activeProvider === 'mock' && (
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    )}
-                    <span>Gunakan Mock Camera</span>
-                  </button>
-                  <button
-                    onClick={() => handleSwitchCameraProvider('gphoto2')}
-                    disabled={isSwitchingCamera}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                      activeProvider === 'gphoto2'
-                        ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
-                        : 'bg-gray-800 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {isSwitchingCamera && activeProvider === 'gphoto2' && (
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    )}
-                    <span>Gunakan Canon gphoto2</span>
-                  </button>
-                </div>
-
-                {cameraSwitchMessage && (
-                  <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl text-pink-300 text-xs font-semibold animate-fade-in flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-pink-400" />
-                    <span>{cameraSwitchMessage}</span>
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={handleTestShotClick}
-                    className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Camera className="w-4 h-4 text-pink-400" />
-                    <span>Ambil Test Shot</span>
-                  </button>
-                  {testShotResult && (
-                    <span className="text-xs text-gray-400 self-center font-mono">
-                      {testShotResult}
-                    </span>
+                  {cameraSwitchMessage && (
+                    <div className="p-4 bg-pink-500/10 border border-pink-500/30 rounded-2xl text-pink-300 text-xs font-semibold animate-fade-in flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-pink-400" />
+                      <span>{cameraSwitchMessage}</span>
+                    </div>
                   )}
-                </div>
-              </div>
 
-              {/* Printer Section */}
-              <div className="p-5 bg-gray-900 border border-gray-800 rounded-2xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Printer className="w-5 h-5 text-pink-400" />
-                    <div>
-                      <h3 className="text-sm font-bold text-white">Printer Photo Kiosk</h3>
-                      <p className="text-xs text-gray-400">
-                        {printerStatus?.name || 'Canon Selphy / DNP QW410'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        printerStatus?.connected ? 'bg-emerald-500' : 'bg-amber-500'
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchCameraProvider('mock')}
+                      disabled={isSwitchingCamera}
+                      className={`py-3 px-4 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        activeProvider === 'mock'
+                          ? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-600/30'
+                          : 'bg-[#161F30] text-gray-400 hover:text-white border border-gray-700/60'
                       }`}
-                    />
-                    <span className="text-xs font-bold text-gray-300">
-                      {printerStatus?.connected ? 'ONLINE' : 'OFFLINE'}
-                    </span>
+                    >
+                      {isSwitchingCamera && activeProvider === 'mock' && (
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      )}
+                      <span>Gunakan Mock Camera</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchCameraProvider('gphoto2')}
+                      disabled={isSwitchingCamera}
+                      className={`py-3 px-4 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        activeProvider === 'gphoto2'
+                          ? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-600/30'
+                          : 'bg-[#161F30] text-gray-400 hover:text-white border border-gray-700/60'
+                      }`}
+                    >
+                      {isSwitchingCamera && activeProvider === 'gphoto2' && (
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      )}
+                      <span>Gunakan Canon gphoto2</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleTriggerTestShot}
+                      className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700/80 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Ambil Test Shot</span>
+                    </button>
+
+                    {testShotResult && (
+                      <span className="text-xs text-gray-300 font-mono truncate">{testShotResult}</span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-gray-800/80 rounded-xl">
-                  <div>
-                    <span className="text-xs font-bold text-white block">Mode Dry-Run (Simulasi)</span>
-                    <span className="text-[11px] text-gray-400">
-                      Jangan buang kertas foto asli saat testing
+                {/* Printer Card */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                        <Printer className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Printer Photo Kiosk</h3>
+                        <p className="text-xs text-gray-400 font-mono">
+                          {printerStatus?.name || 'Default_Photo_Printer'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span>ONLINE</span>
                     </span>
                   </div>
-                  <button
-                    onClick={() => onSetPrinterDryRun(printerStatus?.mode !== 'dry-run')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      printerStatus?.mode === 'dry-run'
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                        : 'bg-gray-700 text-gray-400'
-                    }`}
-                  >
-                    {printerStatus?.mode === 'dry-run' ? 'DRY RUN AKTIF' : 'NORMAL PRINT'}
-                  </button>
-                </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={onTestPrint}
-                    className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Printer className="w-4 h-4 text-pink-400" />
-                    <span>Kirim Test Print Page</span>
-                  </button>
+                  <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-bold text-white block">Mode Dry-Run (Simulasi)</span>
+                      <span className="text-xs text-gray-400">
+                        Mencegah pemborosan kertas foto asli saat proses testing & development
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newDry = !settings.dryRunPrinter;
+                        const updated = { ...settings, dryRunPrinter: newDry };
+                        setSettings(updated);
+                        onSetPrinterDryRun(newDry);
+                        fetch(getApiUrl('/api/admin/settings'), {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(updated),
+                        });
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        settings.dryRunPrinter
+                          ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                          : 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                      }`}
+                    >
+                      {settings.dryRunPrinter ? 'DRY RUN AKTIF' : 'CETAK FISIK REAL'}
+                    </button>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={onTestPrint}
+                      className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700/80 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Kirim Test Print Page</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </main>
         </div>
       </div>
     </div>

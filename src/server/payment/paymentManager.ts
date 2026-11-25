@@ -213,7 +213,14 @@ export class PaymentManager {
     return [];
   }
 
-  public getDailyRevenue(): { totalAmount: number; count: number; voucherCount: number } {
+  public getDailyRevenue(): {
+    totalAmount: number;
+    totalGrossAmount: number;
+    count: number;
+    paidCount: number;
+    voucherCount: number;
+    totalTransactions: number;
+  } {
     const all = this.getAllTransactions();
     const today = new Date().toDateString();
 
@@ -225,7 +232,7 @@ export class PaymentManager {
       const d = new Date(t.paidAt || t.expiresAt).toDateString();
       if (d === today) {
         if (t.status === 'PAID') {
-          totalAmount += t.amount;
+          totalAmount += (t.amount || 0);
           count++;
         } else if (t.status === 'VOUCHER') {
           voucherCount++;
@@ -233,6 +240,13 @@ export class PaymentManager {
       }
     }
 
-    return { totalAmount, count, voucherCount };
+    return {
+      totalAmount,
+      totalGrossAmount: totalAmount,
+      count,
+      paidCount: count,
+      voucherCount,
+      totalTransactions: all.length,
+    };
   }
 }

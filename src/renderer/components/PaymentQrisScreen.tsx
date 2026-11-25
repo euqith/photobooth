@@ -170,22 +170,29 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
           )}
 
           {/* Helper for Midtrans Sandbox Testing */}
-          {transaction?.provider === 'midtrans' && transaction.qrString && (
+          {transaction?.provider === 'midtrans' && (
             <div className="w-full mt-4 p-3 bg-pink-950/40 border border-pink-500/30 rounded-2xl flex flex-col items-center gap-2">
               <span className="text-[11px] text-pink-300 font-semibold text-center">
-                Testing Midtrans Sandbox? Salin QR String untuk dibayar di Simulator:
+                🧪 Testing Midtrans Sandbox? Buka simulator & tempel URL QRIS di bawah ini:
               </span>
               <div className="flex gap-2 w-full">
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(transaction.qrString || '');
-                    alert('QR String disalin ke clipboard! Buka https://simulator.sandbox.midtrans.com/qris/index lalu tempel dan klik Pay.');
+                    const toCopy = transaction.qrCodeUrl || transaction.qrString || '';
+                    navigator.clipboard.writeText(toCopy);
+                    alert(
+                      '✅ URL QRIS Berhasil Disalin!\n\n' +
+                      'Cara Test di Simulator Midtrans:\n' +
+                      '1. Buka simulator (klik tombol Buka Simulator ↗)\n' +
+                      '2. Tempel/Paste URL yang baru disalin ke kotak input "QR Code URL"\n' +
+                      '3. Klik tombol Pay / Submit untuk simulasi bayar sukses.'
+                    );
                   }}
                   className="flex-1 py-2 px-3 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-pink-600/30"
                 >
                   <QrCode className="w-3.5 h-3.5" />
-                  <span>Salin QR String</span>
+                  <span>Salin URL QRIS (Untuk Simulator)</span>
                 </button>
                 <a
                   href="https://simulator.sandbox.midtrans.com/qris/index"
@@ -196,6 +203,9 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
                   <span>Buka Simulator ↗</span>
                 </a>
               </div>
+              <p className="text-[10px] text-gray-400 text-center">
+                *Simulator Midtrans memerlukan <strong>URL QR Code</strong> (bukan string teks mentah).
+              </p>
             </div>
           )}
         </div>

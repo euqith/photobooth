@@ -170,6 +170,7 @@ app.post('/api/admin/test-midtrans', async (req, res) => {
       amount: tx.amount,
       qrImageUrl: tx.qrImageUrl,
       qrString: tx.qrString,
+      qrCodeUrl: tx.qrCodeUrl,
     });
   } catch (err: any) {
     res.status(400).json({

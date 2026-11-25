@@ -24,6 +24,7 @@ export interface QrisTransaction {
   amount: number;
   qrString: string;
   qrImageUrl?: string;
+  qrCodeUrl?: string; // Midtrans QR action URL for simulator or external preview
   expiresAt: number; // timestamp ms
   status: TransactionStatus;
   provider: PaymentProviderType;
