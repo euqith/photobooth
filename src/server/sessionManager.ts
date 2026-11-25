@@ -1,6 +1,7 @@
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import fs from 'fs';
+import sharp from 'sharp';
 import { PhotoSession, PhotoboothState, ColorFilter } from '../shared/types';
 import { CameraManager } from './camera/cameraManager';
 import { TemplateCompositor } from './template/compositor';
@@ -215,6 +216,21 @@ export class SessionManager {
       this.currentSession.singleStripPath = composite.singleStripPath;
       this.currentSession.boomerangMp4Path = boomerang.mp4Path;
       this.currentSession.boomerangGifPath = boomerang.gifPath;
+
+      // Generate lightweight web-optimized thumbnails for each pose so mobile gallery decodes without lag/crashes
+      await Promise.all(
+        this.currentSession.capturedPhotos.map(async (photoPath, idx) => {
+          if (!fs.existsSync(photoPath)) return;
+          const thumbPath = path.join(sessionDir, `pose_${idx + 1}_thumb.jpg`);
+          await sharp(photoPath)
+            .rotate()
+            .resize(800, null, { withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toFile(thumbPath)
+            .catch((err) => console.warn('Thumb gen warning:', err));
+        })
+      );
+
       this.currentSession.state = 'RESULT_SHARE';
       this.broadcastState();
     } catch (err) {

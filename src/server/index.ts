@@ -6,6 +6,7 @@ import fs from 'fs';
 import cors from 'cors';
 import os from 'os';
 import qrcode from 'qrcode';
+import sharp from 'sharp';
 import { SessionManager } from './sessionManager';
 import { CameraManager } from './camera/cameraManager';
 import { PrinterService } from './printer/printerService';
@@ -88,7 +89,7 @@ app.get('/api/templates', (req, res) => {
 });
 
 // Mobile QR Code Landing Page for Guests
-app.get('/share/:sessionId', (req, res) => {
+app.get('/share/:sessionId', async (req, res) => {
   const { sessionId } = req.params;
   const sessionDir = path.join(outputDir, 'sessions', sessionId);
   const printImgUrl = `/output/sessions/${sessionId}/print_4x6_2up.jpg`;
@@ -96,12 +97,30 @@ app.get('/share/:sessionId', (req, res) => {
   const boomerangMp4Url = `/output/sessions/${sessionId}/boomerang.mp4`;
   const boomerangGifUrl = `/output/sessions/${sessionId}/boomerang.gif`;
 
-  // Check if individual poses exist
-  const poses: { num: number; url: string }[] = [];
+  // Check if individual poses exist & ensure web-optimized thumbnails exist
+  const poses: { num: number; url: string; thumbUrl: string }[] = [];
   for (let i = 1; i <= 6; i++) {
     const pPath = path.join(sessionDir, `pose_${i}.jpg`);
+    const thumbPath = path.join(sessionDir, `pose_${i}_thumb.jpg`);
     if (fs.existsSync(pPath)) {
-      poses.push({ num: i, url: `/output/sessions/${sessionId}/pose_${i}.jpg` });
+      if (!fs.existsSync(thumbPath)) {
+        try {
+          await sharp(pPath)
+            .rotate()
+            .resize(800, null, { withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toFile(thumbPath);
+        } catch {
+          // fallback to raw
+        }
+      }
+      poses.push({
+        num: i,
+        url: `/output/sessions/${sessionId}/pose_${i}.jpg`,
+        thumbUrl: fs.existsSync(thumbPath)
+          ? `/output/sessions/${sessionId}/pose_${i}_thumb.jpg`
+          : `/output/sessions/${sessionId}/pose_${i}.jpg`,
+      });
     }
   }
 
@@ -128,26 +147,36 @@ app.get('/share/:sessionId', (req, res) => {
         <div class="text-center my-4">
           <span class="text-xs uppercase tracking-widest text-pink-500 font-bold">Photobooth Digital Gallery</span>
           <h1 class="text-2xl font-display font-extrabold text-white mt-1">✨ Kenangan Seru Kamu!</h1>
-          <p class="text-gray-400 text-xs mt-1">Unduh foto strip, video boomerang, dan pose jepretanmu di bawah ini.</p>
+          <p class="text-gray-400 text-xs mt-1">Unduh foto strip lengkap (2 sisi), boomerang, dan pose jepretanmu.</p>
         </div>
 
-        <!-- Section 1: Photo Strip Card -->
+        <!-- Section 1: Photo Strip Card with 2-Sisi (Full 4R) vs 1-Sisi Switcher -->
         <div class="w-full bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl flex flex-col items-center mb-6">
           <div class="flex items-center justify-between w-full mb-3">
-            <span class="text-xs font-bold text-pink-400 uppercase tracking-wider">Photo Strip 2x6"</span>
-            <span class="text-[10px] bg-gray-800 text-gray-300 px-2.5 py-1 rounded-full font-mono">Ready to Print & Share</span>
+            <span class="text-xs font-bold text-pink-400 uppercase tracking-wider">Hasil Desain Kolase</span>
+            <span class="text-[10px] bg-pink-500/20 text-pink-300 px-2.5 py-1 rounded-full font-semibold">Siap Cetak & Share</span>
+          </div>
+
+          <!-- View Switcher Tabs (2 Sisi vs 1 Sisi) -->
+          <div class="flex bg-gray-800/80 p-1 rounded-xl w-full mb-4 border border-gray-700/60 text-xs font-bold">
+            <button id="btn-tab-full" onclick="switchStripView('full')" class="flex-1 py-2 rounded-lg transition-all bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md">
+              🖼️ 2 Sisi (Full 4R)
+            </button>
+            <button id="btn-tab-single" onclick="switchStripView('single')" class="flex-1 py-2 rounded-lg transition-all text-gray-400 hover:text-white">
+              📱 1 Sisi (Strip 2x6")
+            </button>
           </div>
           
-          <div class="bg-black/60 p-2 rounded-2xl border border-gray-800 w-full flex justify-center mb-4">
-            <img src="${stripImgUrl}" alt="Photo Strip" class="rounded-xl max-h-[50vh] object-contain shadow-2xl" onerror="this.src='${printImgUrl}'" />
+          <div class="bg-black/60 p-2 rounded-2xl border border-gray-800 w-full flex justify-center mb-4 min-h-[280px] items-center">
+            <img id="preview-strip-img" src="${printImgUrl}" alt="Photo Strip Preview" class="rounded-xl max-h-[52vh] object-contain shadow-2xl transition-all duration-300" onerror="this.src='${stripImgUrl}'" />
           </div>
 
           <div class="flex flex-col gap-2.5 w-full">
-            <a href="${stripImgUrl}" download="photobooth_strip.jpg" class="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-600 rounded-xl font-bold text-center text-sm shadow-lg shadow-pink-500/20 active:scale-95 transition-all">
-              📥 Download Photo Strip
+            <a href="${printImgUrl}" download="photobooth_full_4R.jpg" class="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-600 rounded-xl font-bold text-center text-sm shadow-lg shadow-pink-500/20 active:scale-95 transition-all">
+              📥 Unduh Full 4R (2 Sisi Lengkap)
             </a>
-            <a href="${printImgUrl}" download="photobooth_full_4R.jpg" class="w-full py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold text-center text-xs text-gray-300 border border-gray-700 active:scale-95 transition-all">
-              🖼️ Download Full 4R Collage (2-Strip)
+            <a href="${stripImgUrl}" download="photobooth_strip.jpg" class="w-full py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold text-center text-xs text-gray-300 border border-gray-700 active:scale-95 transition-all">
+              📱 Unduh 1 Sisi (Strip 2x6")
             </a>
           </div>
         </div>
@@ -168,10 +197,10 @@ app.get('/share/:sessionId', (req, res) => {
 
           <div class="grid grid-cols-2 gap-3 w-full">
             <a href="${boomerangMp4Url}" download="photobooth_boomerang.mp4" class="py-3 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl font-bold text-center text-xs text-white shadow-lg active:scale-95 transition-all">
-              🎥 Download MP4
+              🎥 Unduh MP4
             </a>
             <a href="${boomerangGifUrl}" download="photobooth_boomerang.gif" class="py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-center text-xs text-gray-300 border border-gray-700 active:scale-95 transition-all">
-              🎞️ Download GIF
+              🎞️ Unduh GIF
             </a>
           </div>
         </div>
@@ -179,22 +208,26 @@ app.get('/share/:sessionId', (req, res) => {
             : ''
         }
 
-        <!-- Section 3: Individual Poses Gallery -->
+        <!-- Section 3: Individual Poses Gallery (Landscape Aspect Ratio + Fast Thumbnails) -->
         ${
           poses.length > 0
             ? `
         <div class="w-full bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl flex flex-col mb-6">
-          <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3">📸 Foto Individual Resolusi Tinggi</span>
+          <div class="flex items-center justify-between w-full mb-3">
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider">📸 Foto Individual Resolusi Tinggi</span>
+            <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-2.5 py-1 rounded-full font-semibold">${poses.length} Pose</span>
+          </div>
           <div class="grid grid-cols-2 gap-3">
             ${poses
               .map(
                 (p) => `
-              <div class="flex flex-col bg-gray-800/80 rounded-2xl p-2 border border-gray-700/60">
-                <div class="aspect-[2/3] rounded-xl overflow-hidden bg-black mb-2">
-                  <img src="${p.url}" alt="Pose ${p.num}" class="w-full h-full object-cover" />
+              <div class="flex flex-col bg-gray-800/80 rounded-2xl p-2 border border-gray-700/60 shadow-lg">
+                <div class="aspect-[3/2] rounded-xl overflow-hidden bg-black mb-2 relative flex items-center justify-center">
+                  <img src="${p.thumbUrl}" alt="Pose ${p.num}" loading="lazy" class="w-full h-full object-cover" />
+                  <span class="absolute top-1.5 left-1.5 bg-black/75 px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow">Pose ${p.num}</span>
                 </div>
-                <a href="${p.url}" download="photobooth_pose_${p.num}.jpg" class="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-center text-[11px] font-semibold active:scale-95 transition-all">
-                  Unduh Pose ${p.num}
+                <a href="${p.url}" download="photobooth_pose_${p.num}.jpg" class="py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-center text-xs font-bold text-white active:scale-95 transition-all shadow">
+                  Unduh Pose ${p.num} (HD)
                 </a>
               </div>
             `
@@ -210,6 +243,24 @@ app.get('/share/:sessionId', (req, res) => {
           Powered by Professional DSLR Photobooth Engine
         </footer>
       </div>
+
+      <script>
+        function switchStripView(mode) {
+          const img = document.getElementById('preview-strip-img');
+          const btnFull = document.getElementById('btn-tab-full');
+          const btnSingle = document.getElementById('btn-tab-single');
+          if (!img || !btnFull || !btnSingle) return;
+          if (mode === 'full') {
+            img.src = '${printImgUrl}';
+            btnFull.className = 'flex-1 py-2 rounded-lg transition-all bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md';
+            btnSingle.className = 'flex-1 py-2 rounded-lg transition-all text-gray-400 hover:text-white';
+          } else {
+            img.src = '${stripImgUrl}';
+            btnSingle.className = 'flex-1 py-2 rounded-lg transition-all bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md';
+            btnFull.className = 'flex-1 py-2 rounded-lg transition-all text-gray-400 hover:text-white';
+          }
+        }
+      </script>
     </body>
     </html>
   `);
