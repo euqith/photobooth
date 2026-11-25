@@ -155,6 +155,27 @@ app.post('/api/admin/test-webhook', (req, res) => {
   res.json({ success: true, message: 'Test ping OK' });
 });
 
+// Direct Test Midtrans API Key Endpoint
+app.post('/api/admin/test-midtrans', async (req, res) => {
+  try {
+    const testOrderId = `TEST-${Date.now().toString(36).toUpperCase()}`;
+    const midtransProvider = paymentManager.getProvider('midtrans');
+    const tx = await midtransProvider.createQris(testOrderId, 1000, 'test-diagnostic');
+    res.json({
+      success: true,
+      message: 'Koneksi Midtrans Berhasil! Kode QRIS uji coba berhasil dibuat.',
+      orderId: tx.orderId,
+      amount: tx.amount,
+      qrImageUrl: tx.qrImageUrl,
+    });
+  } catch (err: any) {
+    res.status(400).json({
+      success: false,
+      error: err?.message || 'Gagal menghubungi Midtrans API',
+    });
+  }
+});
+
 // Template Management API
 app.get('/api/templates', (req, res) => {
   res.json(TemplateInspectorService.getAllTemplates());

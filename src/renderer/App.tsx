@@ -172,7 +172,7 @@ export const App: React.FC = () => {
               <span className="text-4xl">✓</span>
             </div>
             <h2 className="text-3xl font-display font-black text-white">Pembayaran Berhasil!</h2>
-            <p className="text-gray-300 text-sm mt-1">Menyiapkan kamera DSLR Canon, bersiaplah...</p>
+            <p className="text-gray-300 text-sm mt-1">Silakan pilih desain kolase foto favoritmu...</p>
           </div>
         </div>
       )}
@@ -224,13 +224,13 @@ export const App: React.FC = () => {
           <div className="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-500 flex items-center justify-center mb-6">
             <span className="text-4xl">⚠️</span>
           </div>
-          <h2 className="text-3xl font-display font-extrabold text-white mb-3">Terjadi Kendala Kamera</h2>
+          <h2 className="text-3xl font-display font-extrabold text-white mb-3">Terjadi Kendala</h2>
           <p className="text-gray-400 text-sm max-w-md mb-8">
-            Kamera DSLR memerlukan jeda transisi atau port USB sedang sibuk. Silakan tekan tombol di bawah untuk mengulang sesi.
+            {session?.errorMessage || 'Kamera DSLR memerlukan jeda transisi atau port USB sedang sibuk. Silakan tekan tombol di bawah untuk mengulang sesi.'}
           </p>
           <button
             onClick={endSession}
-            className="px-8 py-4 bg-gradient-to-r from-rose-500 to-pink-600 rounded-2xl text-white font-bold text-lg shadow-xl shadow-pink-500/25 active:scale-95 transition-all"
+            className="px-8 py-4 bg-gradient-to-r from-rose-500 to-pink-600 rounded-2xl text-white font-bold text-lg shadow-xl shadow-pink-500/25 active:scale-95 transition-all cursor-pointer"
           >
             Mulai Ulang Sesi
           </button>

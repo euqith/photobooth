@@ -63,6 +63,14 @@ export class SessionManager {
     const sessionDir = path.join(this.sessionsDir, id);
     fs.mkdirSync(sessionDir, { recursive: true });
 
+    const paymentSettings = this.settingsManager.getSettings().payment;
+    // Commercial Flow: QRIS Payment BEFORE template selection
+    if (paymentSettings.mode === 'paid') {
+      await this.requestPayment();
+      return this.currentSession;
+    }
+
+    // Free Mode: Directly open template selection
     this.broadcastState();
     return this.currentSession;
   }
@@ -128,6 +136,7 @@ export class SessionManager {
       );
     } catch (err: any) {
       console.error('[SessionManager] Payment request error:', err);
+      this.currentSession.errorMessage = err?.message || 'Gagal memproses QRIS';
       this.currentSession.state = 'ERROR';
       this.broadcastState();
     }
@@ -141,10 +150,11 @@ export class SessionManager {
     this.currentSession.state = 'PAYMENT_SUCCESS';
     this.broadcastState();
 
-    // 1.5s celebratory delay before starting Live View
+    // 1.5s celebratory cue, then proceed to template grid selection
     setTimeout(async () => {
       if (this.currentSession && (this.currentSession.state === 'PAYMENT_SUCCESS' || this.currentSession.state === 'AWAITING_PAYMENT')) {
-        await this.enterLiveView();
+        this.currentSession.state = 'SELECT_TEMPLATE';
+        this.broadcastState();
       }
     }, 1500);
   }

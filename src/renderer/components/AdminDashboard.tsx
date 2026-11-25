@@ -19,6 +19,7 @@ import {
   Sparkles,
   Plus,
   Play,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   CameraStatus,
@@ -61,6 +62,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [settings, setSettings] = useState<ServerSettings | null>(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null);
+  const [isTestingMidtrans, setIsTestingMidtrans] = useState(false);
+  const [testMidtransResult, setTestMidtransResult] = useState<{ success: boolean; message: string; qrImageUrl?: string } | null>(null);
 
   // Voucher input temporary state
   const [newVoucherCode, setNewVoucherCode] = useState('');
@@ -323,6 +326,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch (err: any) {
       alert('Error simulasi webhook: ' + err.message);
+    }
+  };
+
+  const handleTestMidtrans = async () => {
+    setIsTestingMidtrans(true);
+    setTestMidtransResult(null);
+
+    // Save current settings first so server uses the newest key
+    if (settings) {
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+    }
+
+    try {
+      const res = await fetch('/api/admin/test-midtrans', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setTestMidtransResult({
+          success: true,
+          message: `${data.message} (Order ID: ${data.orderId})`,
+          qrImageUrl: data.qrImageUrl,
+        });
+      } else {
+        setTestMidtransResult({
+          success: false,
+          message: `Gagal: ${data.error}`,
+        });
+      }
+    } catch (err: any) {
+      setTestMidtransResult({
+        success: false,
+        message: `Error koneksi: ${err.message}`,
+      });
+    } finally {
+      setIsTestingMidtrans(false);
     }
   };
 
@@ -632,6 +673,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Production Mode (Live)
                       </label>
                     </div>
+
+                    <div className="md:col-span-2 pt-2 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleTestMidtrans}
+                        disabled={isTestingMidtrans || !settings.payment.midtransServerKey}
+                        className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-pink-400 rounded-xl font-bold text-xs flex items-center gap-2 border border-pink-500/30 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {isTestingMidtrans ? (
+                          <div className="w-3.5 h-3.5 rounded-full border-2 border-pink-400 border-t-transparent animate-spin" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5" />
+                        )}
+                        <span>Tes API Key Midtrans (Buat QRIS Uji Coba)</span>
+                      </button>
+                    </div>
+
+                    {testMidtransResult && (
+                      <div className={`md:col-span-2 p-3 rounded-xl border text-xs font-semibold animate-fade-in flex flex-col gap-2 ${
+                        testMidtransResult.success
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                          : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {testMidtransResult.success ? (
+                            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                          )}
+                          <span>{testMidtransResult.message}</span>
+                        </div>
+                        {testMidtransResult.qrImageUrl && (
+                          <div className="mt-1 p-2 bg-white rounded-lg w-32 h-32 self-center flex items-center justify-center shadow-lg">
+                            <img src={testMidtransResult.qrImageUrl} alt="QRIS Test" className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

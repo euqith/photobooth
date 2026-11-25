@@ -8,13 +8,25 @@ export class MidtransPaymentProvider implements IPaymentProvider {
 
   private getBaseUrl(): string {
     const settings = SettingsManager.getInstance().getSettings().payment;
+    const key = (settings.midtransServerKey || process.env.MIDTRANS_SERVER_KEY || '').trim();
+    // Auto-detect environment if key starts with SB- (Sandbox) or Mid- (Production)
+    if (key.startsWith('SB-')) {
+      return 'https://api.sandbox.midtrans.com';
+    }
+    if (key.startsWith('Mid-')) {
+      return 'https://api.midtrans.com';
+    }
     return settings.environment === 'production'
       ? 'https://api.midtrans.com'
       : 'https://api.sandbox.midtrans.com';
   }
 
   private getAuthHeader(): string {
-    const serverKey = SettingsManager.getInstance().getSettings().payment.midtransServerKey;
+    const settings = SettingsManager.getInstance().getSettings().payment;
+    const serverKey = (settings.midtransServerKey || process.env.MIDTRANS_SERVER_KEY || '').trim();
+    if (!serverKey) {
+      throw new Error('Midtrans Server Key belum diatur! Masukkan Server Key di tab Pembayaran & Webhook pada Admin Center.');
+    }
     return 'Basic ' + Buffer.from(serverKey + ':').toString('base64');
   }
 
@@ -24,7 +36,7 @@ export class MidtransPaymentProvider implements IPaymentProvider {
       payment_type: 'qris',
       transaction_details: {
         order_id: orderId,
-        gross_amount: amount,
+        gross_amount: Math.round(amount),
       },
       qris: {
         acquirer: 'gopay',
@@ -45,7 +57,11 @@ export class MidtransPaymentProvider implements IPaymentProvider {
     const data = await res.json() as any;
 
     if (!res.ok || (data.status_code && data.status_code !== '201')) {
-      throw new Error(data.status_message || `Midtrans API Error: ${res.status}`);
+      const errMsg =
+        data.status_message ||
+        (Array.isArray(data.validation_messages) ? data.validation_messages.join(', ') : '') ||
+        `Midtrans API Error: ${res.status}`;
+      throw new Error(errMsg);
     }
 
     const qrString = data.qr_string || '';

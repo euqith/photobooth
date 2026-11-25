@@ -71,6 +71,7 @@ export interface PhotoSession {
   printCopies: number;
   state: PhotoboothState;
   payment?: QrisTransaction;
+  errorMessage?: string;
 }
 
 export interface CameraStatus {

@@ -13,7 +13,7 @@
     "mode": "paid",
     "provider": "sandbox",
     "environment": "sandbox",
-    "sessionPrice": 35000,
+    "sessionPrice": 50000,
     "extraPrintPrice": 10000,
     "qrisTimeoutSeconds": 300,
     "verificationMethod": "polling",
