@@ -63,7 +63,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null);
   const [isTestingMidtrans, setIsTestingMidtrans] = useState(false);
-  const [testMidtransResult, setTestMidtransResult] = useState<{ success: boolean; message: string; qrImageUrl?: string } | null>(null);
+  const [testMidtransResult, setTestMidtransResult] = useState<{ success: boolean; message: string; qrImageUrl?: string; qrString?: string } | null>(null);
 
   // Voucher input temporary state
   const [newVoucherCode, setNewVoucherCode] = useState('');
@@ -348,8 +348,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (data.success) {
         setTestMidtransResult({
           success: true,
-          message: `${data.message} (Order ID: ${data.orderId})`,
+          message: data.message,
           qrImageUrl: data.qrImageUrl,
+          qrString: data.qrString,
         });
       } else {
         setTestMidtransResult({
@@ -705,8 +706,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <span>{testMidtransResult.message}</span>
                         </div>
                         {testMidtransResult.qrImageUrl && (
-                          <div className="mt-1 p-2 bg-white rounded-lg w-32 h-32 self-center flex items-center justify-center shadow-lg">
-                            <img src={testMidtransResult.qrImageUrl} alt="QRIS Test" className="w-full h-full object-contain" />
+                          <div className="flex flex-col items-center gap-2 mt-2">
+                            <div className="p-2 bg-white rounded-xl w-36 h-36 flex items-center justify-center shadow-lg">
+                              <img src={testMidtransResult.qrImageUrl} alt="QRIS Test" className="w-full h-full object-contain" />
+                            </div>
+                            {testMidtransResult.qrString && (
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(testMidtransResult.qrString || '');
+                                    alert('QR String berhasil disalin!');
+                                  }}
+                                  className="py-1 px-3 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                >
+                                  Salin QR String
+                                </button>
+                                <a
+                                  href="https://simulator.sandbox.midtrans.com/qris/index"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="py-1 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-bold transition-all"
+                                >
+                                  Buka Simulator ↗
+                                </a>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

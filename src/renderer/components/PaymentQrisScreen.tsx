@@ -168,6 +168,36 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
               Kode voucher tidak valid atau sudah kedaluwarsa.
             </p>
           )}
+
+          {/* Helper for Midtrans Sandbox Testing */}
+          {transaction?.provider === 'midtrans' && transaction.qrString && (
+            <div className="w-full mt-4 p-3 bg-pink-950/40 border border-pink-500/30 rounded-2xl flex flex-col items-center gap-2">
+              <span className="text-[11px] text-pink-300 font-semibold text-center">
+                Testing Midtrans Sandbox? Salin QR String untuk dibayar di Simulator:
+              </span>
+              <div className="flex gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(transaction.qrString || '');
+                    alert('QR String disalin ke clipboard! Buka https://simulator.sandbox.midtrans.com/qris/index lalu tempel dan klik Pay.');
+                  }}
+                  className="flex-1 py-2 px-3 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-pink-600/30"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Salin QR String</span>
+                </button>
+                <a
+                  href="https://simulator.sandbox.midtrans.com/qris/index"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
+                >
+                  <span>Buka Simulator ↗</span>
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

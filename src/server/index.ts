@@ -160,13 +160,16 @@ app.post('/api/admin/test-midtrans', async (req, res) => {
   try {
     const testOrderId = `TEST-${Date.now().toString(36).toUpperCase()}`;
     const midtransProvider = paymentManager.getProvider('midtrans');
-    const tx = await midtransProvider.createQris(testOrderId, 1000, 'test-diagnostic');
+    const settings = settingsManager.getSettings().payment;
+    const testAmount = settings.sessionPrice || 35000;
+    const tx = await midtransProvider.createQris(testOrderId, testAmount, 'test-diagnostic');
     res.json({
       success: true,
-      message: 'Koneksi Midtrans Berhasil! Kode QRIS uji coba berhasil dibuat.',
+      message: `Koneksi Midtrans Berhasil! Kode QRIS uji coba dibuat dengan nominal Rp ${testAmount.toLocaleString('id-ID')}.`,
       orderId: tx.orderId,
       amount: tx.amount,
       qrImageUrl: tx.qrImageUrl,
+      qrString: tx.qrString,
     });
   } catch (err: any) {
     res.status(400).json({
