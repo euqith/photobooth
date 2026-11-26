@@ -30,7 +30,13 @@ const DEFAULT_SETTINGS: ServerSettings = {
     xenditApiKey: '',
     cloudRelayUrl: '',
     webhookSecret: '',
-    activeVouchers: ['VIPGUEST', 'CASH01', 'PROMO2026'],
+    vouchers: [
+      { code: 'VIPGUEST', type: 'percentage', value: 100, label: 'Tamu VIP (Gratis 100%)' },
+      { code: 'CASH01', type: 'percentage', value: 100, label: 'Pembayaran Kasir Tunai' },
+      { code: 'PROMO20', type: 'percentage', value: 20, label: 'Diskon Promo 20%' },
+      { code: 'POTONGAN10K', type: 'fixed', value: 10000, label: 'Potongan Rp 10.000' },
+    ],
+    activeVouchers: ['VIPGUEST', 'CASH01', 'PROMO20', 'POTONGAN10K'],
   },
 };
 
@@ -54,13 +60,32 @@ export class SettingsManager {
       if (fs.existsSync(CONFIG_PATH)) {
         const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
         const parsed = JSON.parse(raw);
+        const payment = {
+          ...DEFAULT_SETTINGS.payment,
+          ...(parsed.payment || {}),
+        };
+
+        // Auto-migration: if vouchers is missing or empty, build from activeVouchers
+        if (!payment.vouchers || !Array.isArray(payment.vouchers) || payment.vouchers.length === 0) {
+          if (Array.isArray(payment.activeVouchers) && payment.activeVouchers.length > 0) {
+            payment.vouchers = payment.activeVouchers.map((code: string) => ({
+              code: code.trim().toUpperCase(),
+              type: 'percentage' as const,
+              value: 100,
+              label: 'Gratis 100% / Kasir Bypass',
+            }));
+          } else {
+            payment.vouchers = [...DEFAULT_SETTINGS.payment.vouchers];
+          }
+        }
+
+        // Always keep activeVouchers in sync
+        payment.activeVouchers = payment.vouchers.map((v: any) => v.code.toUpperCase());
+
         return {
           ...DEFAULT_SETTINGS,
           ...parsed,
-          payment: {
-            ...DEFAULT_SETTINGS.payment,
-            ...(parsed.payment || {}),
-          },
+          payment,
         };
       }
     } catch (err) {
@@ -76,13 +101,20 @@ export class SettingsManager {
   }
 
   public updateSettings(partial: Partial<ServerSettings>): ServerSettings {
+    const updatedPayment = {
+      ...this.settings.payment,
+      ...(partial.payment || {}),
+    };
+
+    // Ensure vouchers and activeVouchers stay synchronized
+    if (updatedPayment.vouchers && Array.isArray(updatedPayment.vouchers)) {
+      updatedPayment.activeVouchers = updatedPayment.vouchers.map((v) => v.code.trim().toUpperCase());
+    }
+
     this.settings = {
       ...this.settings,
       ...partial,
-      payment: {
-        ...this.settings.payment,
-        ...(partial.payment || {}),
-      },
+      payment: updatedPayment,
     };
     this.saveSettings(this.settings);
     return this.getSettings();
@@ -97,9 +129,47 @@ export class SettingsManager {
     }
   }
 
-  public validateVoucher(code: string): boolean {
-    if (!code) return false;
+  public getVouchers() {
+    return this.settings.payment.vouchers || [];
+  }
+
+  public findVoucher(code: string) {
+    if (!code) return null;
     const clean = code.trim().toUpperCase();
-    return this.settings.payment.activeVouchers.some((v) => v.toUpperCase() === clean);
+    const vouchers = this.getVouchers();
+    return vouchers.find((v) => v.code.trim().toUpperCase() === clean) || null;
+  }
+
+  public validateVoucher(code: string): boolean {
+    return this.findVoucher(code) !== null;
+  }
+
+  public calculateDiscount(code: string, originalAmount: number): {
+    valid: boolean;
+    discountAmount: number;
+    finalAmount: number;
+    voucher?: { code: string; type: 'percentage' | 'fixed'; value: number; label?: string };
+  } {
+    const voucher = this.findVoucher(code);
+    if (!voucher) {
+      return { valid: false, discountAmount: 0, finalAmount: originalAmount };
+    }
+
+    let discountAmount = 0;
+    if (voucher.type === 'percentage') {
+      const pct = Math.max(0, Math.min(100, Number(voucher.value) || 0));
+      discountAmount = Math.round((originalAmount * pct) / 100);
+    } else {
+      // Fixed nominal in IDR
+      discountAmount = Math.max(0, Math.min(originalAmount, Number(voucher.value) || 0));
+    }
+
+    const finalAmount = Math.max(0, originalAmount - discountAmount);
+    return {
+      valid: true,
+      discountAmount,
+      finalAmount,
+      voucher,
+    };
   }
 }

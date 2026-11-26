@@ -35,6 +35,8 @@ import {
   Film,
   Sun,
   Moon,
+  Tag,
+  Percent,
 } from 'lucide-react';
 import {
   CameraStatus,
@@ -43,6 +45,7 @@ import {
   QrisTransaction,
   TemplateMetadata,
   PhotoHistorySession,
+  VoucherConfig,
 } from '../../shared/types';
 
 interface AdminDashboardProps {
@@ -82,7 +85,13 @@ const DEFAULT_SETTINGS: ServerSettings = {
     xenditApiKey: '',
     cloudRelayUrl: '',
     webhookSecret: '',
-    activeVouchers: ['VIPGUEST', 'CASH01', 'PROMO2026'],
+    vouchers: [
+      { code: 'VIPGUEST', type: 'percentage', value: 100, label: 'Tamu VIP (Gratis 100%)' },
+      { code: 'CASH01', type: 'percentage', value: 100, label: 'Pembayaran Kasir Tunai' },
+      { code: 'PROMO20', type: 'percentage', value: 20, label: 'Diskon Promo 20%' },
+      { code: 'POTONGAN10K', type: 'fixed', value: 10000, label: 'Potongan Rp 10.000' },
+    ],
+    activeVouchers: ['VIPGUEST', 'CASH01', 'PROMO20', 'POTONGAN10K'],
   },
 };
 
@@ -154,6 +163,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Voucher input temporary state
   const [newVoucherCode, setNewVoucherCode] = useState('');
+  const [newVoucherType, setNewVoucherType] = useState<'percentage' | 'fixed'>('percentage');
+  const [newVoucherValue, setNewVoucherValue] = useState<number>(100);
+  const [newVoucherLabel, setNewVoucherLabel] = useState('');
 
   // Template Manager State
   const [templates, setTemplates] = useState<TemplateMetadata[]>([]);
@@ -417,25 +429,80 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleAddVoucher = () => {
     if (!newVoucherCode.trim() || !settings) return;
     const cleanCode = newVoucherCode.trim().toUpperCase();
-    if (settings.payment.activeVouchers.includes(cleanCode)) return;
+
+    // Get current vouchers array or fallback from activeVouchers
+    const currentVouchers: VoucherConfig[] =
+      settings.payment.vouchers && Array.isArray(settings.payment.vouchers)
+        ? settings.payment.vouchers
+        : (settings.payment.activeVouchers || []).map((c) => ({
+            code: c,
+            type: 'percentage' as const,
+            value: 100,
+            label: 'Gratis 100% / Kasir Bypass',
+          }));
+
+    if (currentVouchers.some((v) => v.code === cleanCode)) {
+      alert(`Kode voucher "${cleanCode}" sudah terdaftar.`);
+      return;
+    }
+
+    const val = Number(newVoucherValue) || 0;
+    if (newVoucherType === 'percentage' && (val <= 0 || val > 100)) {
+      alert('Untuk tipe persentase, nilai diskon harus antara 1% sampai 100%.');
+      return;
+    }
+    if (newVoucherType === 'fixed' && val <= 0) {
+      alert('Untuk potongan nominal, nilai harus lebih dari 0.');
+      return;
+    }
+
+    const newVoucher: VoucherConfig = {
+      code: cleanCode,
+      type: newVoucherType,
+      value: val,
+      label: newVoucherLabel.trim() || undefined,
+    };
+
+    const updatedVouchers = [...currentVouchers, newVoucher];
 
     setSettings({
       ...settings,
       payment: {
         ...settings.payment,
-        activeVouchers: [...settings.payment.activeVouchers, cleanCode],
+        vouchers: updatedVouchers,
+        activeVouchers: updatedVouchers.map((v) => v.code),
       },
     });
+
     setNewVoucherCode('');
+    setNewVoucherLabel('');
+    if (newVoucherType === 'percentage') {
+      setNewVoucherValue(50);
+    } else {
+      setNewVoucherValue(10000);
+    }
   };
 
   const handleRemoveVoucher = (code: string) => {
     if (!settings) return;
+    const currentVouchers: VoucherConfig[] =
+      settings.payment.vouchers && Array.isArray(settings.payment.vouchers)
+        ? settings.payment.vouchers
+        : (settings.payment.activeVouchers || []).map((c) => ({
+            code: c,
+            type: 'percentage' as const,
+            value: 100,
+            label: 'Gratis 100% / Kasir Bypass',
+          }));
+
+    const updatedVouchers = currentVouchers.filter((v) => v.code !== code);
+
     setSettings({
       ...settings,
       payment: {
         ...settings.payment,
-        activeVouchers: settings.payment.activeVouchers.filter((v) => v !== code),
+        vouchers: updatedVouchers,
+        activeVouchers: updatedVouchers.map((v) => v.code),
       },
     });
   };
@@ -1652,49 +1719,197 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Voucher Codes Management */}
-                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-base font-bold text-white">Voucher Promo & PIN Kasir Tunai</h3>
-                      <p className="text-xs text-gray-400">Kode kupon yang dapat digunakan pelanggan untuk bypass pembayaran</p>
+                {/* Voucher Codes & Discounts Management */}
+                <div className="p-6 bg-[#111827] border border-gray-800/80 rounded-3xl space-y-6">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                        <Tag className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Manajemen Voucher & Potongan Diskon</h3>
+                        <p className="text-xs text-gray-400">
+                          Atur kode kupon untuk diskon persentase (%), potongan nominal (Rp), atau bypass kasir (gratis 100%)
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Contoh: VIPFREE, PROMO50, CASH01"
-                      value={newVoucherCode}
-                      onChange={(e) => setNewVoucherCode(e.target.value)}
-                      className="flex-1 px-4 py-2.5 bg-[#161F30] border border-gray-700/80 rounded-xl text-white text-xs font-mono uppercase focus:outline-none focus:border-pink-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddVoucher}
-                      className="px-4 py-2.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-pink-600/30"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Tambah Kode</span>
-                    </button>
-                  </div>
+                  {/* Add Voucher Form */}
+                  <div className="bg-[#161F30]/70 border border-gray-800/90 rounded-2xl p-4 space-y-3">
+                    <span className="text-xs font-bold text-pink-400 uppercase tracking-wider block">
+                      Tambah Voucher Baru
+                    </span>
 
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {settings.payment.activeVouchers?.map((code) => (
-                      <div
-                        key={code}
-                        className="px-3.5 py-1.5 bg-[#161F30] border border-pink-500/30 rounded-xl text-xs font-mono font-bold text-pink-300 flex items-center gap-2"
-                      >
-                        <span>{code}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                      {/* Code */}
+                      <div className="md:col-span-4 space-y-1">
+                        <label className="text-[11px] text-gray-400 font-semibold block">Kode Voucher</label>
+                        <input
+                          type="text"
+                          placeholder="Misal: DISKON20, VIPFREE"
+                          value={newVoucherCode}
+                          onChange={(e) => setNewVoucherCode(e.target.value)}
+                          className="w-full px-3.5 py-2 bg-[#111827] border border-gray-700 rounded-xl text-white text-xs font-mono uppercase focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+
+                      {/* Type Toggle */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="text-[11px] text-gray-400 font-semibold block">Tipe Potongan</label>
+                        <div className="grid grid-cols-2 bg-[#111827] p-1 border border-gray-700 rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewVoucherType('percentage');
+                              if (newVoucherValue > 100) setNewVoucherValue(50);
+                            }}
+                            className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                              newVoucherType === 'percentage'
+                                ? 'bg-pink-600 text-white shadow'
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            % Persen
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewVoucherType('fixed');
+                              if (newVoucherValue <= 100) setNewVoucherValue(15000);
+                            }}
+                            className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                              newVoucherType === 'fixed'
+                                ? 'bg-pink-600 text-white shadow'
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            Rp Nominal
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Value Input */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="text-[11px] text-gray-400 font-semibold block">
+                          {newVoucherType === 'percentage' ? 'Besar Diskon (%)' : 'Potongan Harga (Rp)'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="1"
+                            max={newVoucherType === 'percentage' ? 100 : undefined}
+                            step={newVoucherType === 'percentage' ? 5 : 1000}
+                            placeholder={newVoucherType === 'percentage' ? 'Contoh: 20' : 'Contoh: 15000'}
+                            value={newVoucherValue}
+                            onChange={(e) => setNewVoucherValue(Number(e.target.value))}
+                            className="w-full px-3.5 py-2 bg-[#111827] border border-gray-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-pink-500 pr-10"
+                          />
+                          <span className="absolute right-3 top-2 text-xs font-mono font-bold text-gray-400">
+                            {newVoucherType === 'percentage' ? '%' : 'Rp'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Add Button */}
+                      <div className="md:col-span-2">
                         <button
                           type="button"
-                          onClick={() => handleRemoveVoucher(code)}
-                          className="hover:text-rose-400 transition-colors cursor-pointer"
+                          onClick={handleAddVoucher}
+                          className="w-full py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-pink-600/30 active:scale-95"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <Plus className="w-4 h-4" />
+                          <span>Tambah</span>
                         </button>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Label / Description */}
+                    <div className="space-y-1 pt-1">
+                      <label className="text-[11px] text-gray-400 font-semibold block">
+                        Keterangan / Catatan Voucher (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Diskon Grand Opening / Kupon Tamu VIP Undangan"
+                        value={newVoucherLabel}
+                        onChange={(e) => setNewVoucherLabel(e.target.value)}
+                        className="w-full px-3.5 py-1.5 bg-[#111827] border border-gray-700 rounded-xl text-white text-xs focus:outline-none focus:border-pink-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Vouchers List */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
+                      Daftar Voucher Aktif ({((settings?.payment?.vouchers?.length) || (settings?.payment?.activeVouchers?.length) || 0)})
+                    </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {(settings?.payment?.vouchers && settings.payment.vouchers.length > 0
+                        ? settings.payment.vouchers
+                        : (settings?.payment?.activeVouchers || []).map((code) => ({
+                            code,
+                            type: 'percentage' as const,
+                            value: 100,
+                            label: 'Gratis 100% / Kasir Bypass',
+                          }))
+                      ).map((v) => {
+                        const sessionPrice = settings?.payment?.sessionPrice || 50000;
+                        const simulatedDiscount =
+                          v.type === 'percentage'
+                            ? Math.round((sessionPrice * Math.min(100, v.value)) / 100)
+                            : Math.min(sessionPrice, v.value);
+                        const finalPrice = Math.max(0, sessionPrice - simulatedDiscount);
+
+                        return (
+                          <div
+                            key={v.code}
+                            className="p-3.5 bg-[#161F30] border border-gray-800 rounded-2xl flex items-center justify-between gap-3 group hover:border-pink-500/40 transition-all"
+                          >
+                            <div className="space-y-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-black text-pink-400 tracking-wider">
+                                  {v.code}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono ${
+                                    v.type === 'percentage' && v.value === 100
+                                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                      : v.type === 'percentage'
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                      : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                  }`}
+                                >
+                                  {v.type === 'percentage'
+                                    ? v.value === 100
+                                      ? 'GRATIS 100%'
+                                      : `DISKON ${v.value}%`
+                                    : `POTONGAN Rp ${(v.value || 0).toLocaleString('id-ID')}`}
+                                </span>
+                              </div>
+
+                              <p className="text-[11px] text-gray-400 truncate">
+                                {v.label || (v.type === 'percentage' && v.value === 100 ? 'Bypass pembayaran kasir' : 'Kupon promosi')}
+                              </p>
+
+                              <p className="text-[10px] text-gray-400 font-mono">
+                                Efek harga: -Rp {simulatedDiscount.toLocaleString('id-ID')} → Bayar Rp {finalPrice.toLocaleString('id-ID')}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveVoucher(v.code)}
+                              className="p-2 bg-gray-800/80 hover:bg-rose-950/80 text-gray-400 hover:text-rose-300 rounded-xl transition-all cursor-pointer shrink-0 border border-gray-700/60"
+                              title={`Hapus voucher ${v.code}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>

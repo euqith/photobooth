@@ -179,15 +179,116 @@ export class SessionManager {
     }, 1500);
   }
 
-  public async applyVoucherCode(code: string): Promise<boolean> {
-    if (!this.currentSession || this.currentSession.state !== 'AWAITING_PAYMENT') return false;
-    const isValid = this.settingsManager.validateVoucher(code);
-    if (isValid && this.currentSession.payment) {
-      this.paymentManager.settlePayment(this.currentSession.payment.orderId, code);
-      await this.onPaymentSettled();
-      return true;
+  public async applyVoucherCode(code: string): Promise<{
+    success: boolean;
+    message: string;
+    discountAmount?: number;
+    finalAmount?: number;
+  }> {
+    if (!this.currentSession || this.currentSession.state !== 'AWAITING_PAYMENT') {
+      const res = { success: false, message: 'Tidak ada sesi pembayaran aktif.' };
+      this.io.emit('payment:voucherResult', res);
+      return res;
     }
-    return false;
+
+    const originalPrice =
+      this.currentSession.payment?.originalAmount ||
+      this.currentSession.payment?.amount ||
+      this.settingsManager.getSettings().payment.sessionPrice ||
+      50000;
+
+    const discountInfo = this.settingsManager.calculateDiscount(code, originalPrice);
+    if (!discountInfo.valid || !discountInfo.voucher) {
+      const res = { success: false, message: 'Kode voucher tidak valid atau sudah tidak aktif.' };
+      this.io.emit('payment:voucherResult', res);
+      return res;
+    }
+
+    const { discountAmount, finalAmount, voucher } = discountInfo;
+
+    // Case 1: 100% Free / Full discount (Lunas Langsung)
+    if (finalAmount <= 0) {
+      if (this.currentSession.payment) {
+        this.currentSession.payment.originalAmount = originalPrice;
+        this.currentSession.payment.discountAmount = discountAmount;
+        this.currentSession.payment.amount = 0;
+        this.currentSession.payment.voucherCode = voucher.code;
+        this.currentSession.payment.status = 'PAID';
+        this.paymentManager.settlePayment(this.currentSession.payment.orderId, voucher.code);
+      }
+      const res = {
+        success: true,
+        message: `Voucher ${voucher.code} berhasil! Diskon 100% (Gratis).`,
+        discountAmount,
+        finalAmount: 0,
+      };
+      this.io.emit('payment:voucherResult', res);
+      await this.onPaymentSettled();
+      return res;
+    }
+
+    // Case 2: Partial discount (Potongan sebagian)
+    // Sisa pembayaran (finalAmount) harus dibayar via QRIS baru
+    try {
+      this.paymentManager.stopPolling();
+
+      let newTx: any;
+      try {
+        newTx = await this.paymentManager.createTransaction(this.currentSession.id, finalAmount);
+      } catch (err: any) {
+        console.warn('[SessionManager] Primary gateway failed for partial voucher, using sandbox:', err);
+        const fallback = this.paymentManager.getProvider('sandbox');
+        newTx = await fallback.createQris(
+          `FALLBACK-${this.currentSession.id}-${Date.now().toString(36)}`,
+          finalAmount,
+          this.currentSession.id
+        );
+      }
+
+      newTx.originalAmount = originalPrice;
+      newTx.discountAmount = discountAmount;
+      newTx.voucherCode = voucher.code;
+      if (!newTx.expiresAt) {
+        newTx.expiresAt = Date.now() + 5 * 60 * 1000;
+      }
+
+      this.currentSession.payment = newTx;
+      this.broadcastState();
+
+      // Start status polling for the new discounted QRIS
+      this.paymentManager.startStatusPolling(
+        newTx.orderId,
+        async () => {
+          await this.onPaymentSettled();
+        },
+        () => {
+          if (this.currentSession && this.currentSession.state === 'AWAITING_PAYMENT') {
+            this.resetToIdle();
+          }
+        }
+      );
+
+      const discountLabel =
+        voucher.type === 'percentage'
+          ? `${voucher.value}% (-Rp ${discountAmount.toLocaleString('id-ID')})`
+          : `-Rp ${discountAmount.toLocaleString('id-ID')}`;
+
+      const resMsg = `Voucher ${voucher.code} diterapkan! Diskon ${discountLabel}. Sisa tagihan Rp ${finalAmount.toLocaleString('id-ID')}.`;
+
+      const res = {
+        success: true,
+        message: resMsg,
+        discountAmount,
+        finalAmount,
+      };
+      this.io.emit('payment:voucherResult', res);
+      return res;
+    } catch (err: any) {
+      console.error('[SessionManager] Error applying partial voucher:', err);
+      const res = { success: false, message: 'Gagal memperbarui QRIS dengan voucher: ' + (err?.message || 'Error') };
+      this.io.emit('payment:voucherResult', res);
+      return res;
+    }
   }
 
   public async enterLiveView(): Promise<void> {

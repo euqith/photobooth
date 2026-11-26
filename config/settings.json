@@ -24,10 +24,43 @@
     "xenditApiKey": "",
     "cloudRelayUrl": "",
     "webhookSecret": "",
+    "vouchers": [
+      {
+        "code": "VIPGUEST",
+        "type": "percentage",
+        "value": 100,
+        "label": "Tamu VIP (Gratis 100%)"
+      },
+      {
+        "code": "CASH01",
+        "type": "percentage",
+        "value": 100,
+        "label": "Kasir Tunai / Manual"
+      },
+      {
+        "code": "DISKON50",
+        "type": "percentage",
+        "value": 50,
+        "label": "Promo Diskon 50%"
+      },
+      {
+        "code": "POTONGAN20K",
+        "type": "fixed",
+        "value": 20000,
+        "label": "Potongan Harga Rp 20.000"
+      },
+      {
+        "code": "CHV11",
+        "type": "percentage",
+        "value": 100,
+        "label": "Kupon Spesial"
+      }
+    ],
     "activeVouchers": [
       "VIPGUEST",
       "CASH01",
-      "PROMO2026",
+      "DISKON50",
+      "POTONGAN20K",
       "CHV11"
     ]
   }

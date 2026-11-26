@@ -18,10 +18,22 @@ export type PaymentProviderType = 'sandbox' | 'midtrans' | 'xendit';
 export type VerificationMethod = 'polling' | 'relay';
 export type TransactionStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'VOUCHER';
 
+export type VoucherDiscountType = 'percentage' | 'fixed';
+
+export interface VoucherConfig {
+  code: string;
+  type: VoucherDiscountType; // 'percentage' (%) | 'fixed' (Rp)
+  value: number; // e.g. 50 (50%), 100 (100%), or 15000 (Rp 15.000)
+  label?: string; // e.g. "Diskon 50% Grand Opening" or "Voucher Tamu VIP"
+}
+
 export interface QrisTransaction {
   orderId: string;
   sessionId: string;
   amount: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  voucherCode?: string;
   qrString: string;
   qrImageUrl?: string;
   qrCodeUrl?: string; // Midtrans QR action URL for simulator or external preview
@@ -127,7 +139,8 @@ export interface PaymentSettings {
   xenditApiKey: string;
   cloudRelayUrl: string;
   webhookSecret: string;
-  activeVouchers: string[]; // list of active promo/cash voucher codes
+  vouchers: VoucherConfig[]; // configured vouchers with discount rules
+  activeVouchers: string[]; // list of active promo/cash voucher codes (backwards compatibility)
 }
 
 export interface ServerSettings {

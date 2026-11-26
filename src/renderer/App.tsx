@@ -21,6 +21,7 @@ export const App: React.FC = () => {
   const [showAdmin, setShowAdmin] = useState<boolean>(false);
   const [adminTapCount, setAdminTapCount] = useState<number>(0);
   const [isStartingSession, setIsStartingSession] = useState<boolean>(false);
+  const [voucherFeedback, setVoucherFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [loadingInfo, setLoadingInfo] = useState<{ active: boolean; message?: string; subMessage?: string }>({
     active: false,
   });
@@ -48,6 +49,11 @@ export const App: React.FC = () => {
       setCountdown(data.countdown || 0);
       setIsStartingSession(false);
       setLoadingInfo({ active: false });
+    });
+
+    s.on('payment:voucherResult', (res: { success: boolean; message: string }) => {
+      setVoucherFeedback(res);
+      setTimeout(() => setVoucherFeedback(null), 5000);
     });
 
     s.on('session:loading', (info: { active: boolean; message?: string; subMessage?: string }) => {
@@ -212,6 +218,7 @@ export const App: React.FC = () => {
           onCancel={endSession}
           onSimulatePaid={simulatePaid}
           onApplyVoucher={applyVoucher}
+          voucherFeedback={voucherFeedback}
         />
       )}
 

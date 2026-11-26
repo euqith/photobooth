@@ -20,6 +20,7 @@ interface PaymentQrisScreenProps {
   onCancel: () => void;
   onSimulatePaid?: () => void;
   onApplyVoucher: (code: string) => void;
+  voucherFeedback?: { success: boolean; message: string } | null;
 }
 
 export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
@@ -27,10 +28,10 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
   onCancel,
   onSimulatePaid,
   onApplyVoucher,
+  voucherFeedback,
 }) => {
   const [timeLeft, setTimeLeft] = useState(300);
   const [voucherCode, setVoucherCode] = useState('');
-  const [voucherError, setVoucherError] = useState(false);
   const [showVoucherInput, setShowVoucherInput] = useState(false);
   const [copiedOrderId, setCopiedOrderId] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -88,8 +89,6 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
     e.preventDefault();
     if (!voucherCode.trim()) return;
     onApplyVoucher(voucherCode.trim());
-    setVoucherError(true);
-    setTimeout(() => setVoucherError(false), 2500);
   };
 
   const handleAutoSimulateMidtrans = async () => {
@@ -193,6 +192,27 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
                   <span className="text-gray-200 font-medium">1x Sesi Foto + Cetak 2 Strip (4x6)</span>
                 </div>
 
+                {transaction?.originalAmount && transaction?.discountAmount ? (
+                  <>
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-800/60">
+                      <span className="text-gray-400 font-semibold">Harga Normal</span>
+                      <span className="text-gray-400 line-through font-mono">
+                        Rp {transaction.originalAmount.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-800/60 bg-emerald-500/5 px-2 py-1 rounded-lg">
+                      <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5" />
+                        Potongan Voucher ({transaction.voucherCode})
+                      </span>
+                      <span className="text-emerald-400 font-bold font-mono">
+                        -Rp {transaction.discountAmount.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </>
+                ) : null}
+
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400 font-semibold">Metode Pembayaran</span>
                   <span className="text-emerald-400 font-bold uppercase tracking-wider">QRIS Dinamis</span>
@@ -246,15 +266,26 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
                     onClick={() => setShowVoucherInput(false)}
                     className="px-3 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-xl text-xs cursor-pointer"
                   >
-                    Batal
+                    Tutup
                   </button>
                 </form>
               )}
 
-              {voucherError && (
-                <p className="text-xs text-rose-400 font-semibold animate-bounce text-center">
-                  Kode voucher tidak valid atau sudah kedaluwarsa.
-                </p>
+              {voucherFeedback && (
+                <div
+                  className={`p-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in ${
+                    voucherFeedback.success
+                      ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300'
+                      : 'bg-rose-950/80 border border-rose-500/50 text-rose-300'
+                  }`}
+                >
+                  {voucherFeedback.success ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  ) : (
+                    <X className="w-4 h-4 shrink-0 text-rose-400" />
+                  )}
+                  <span>{voucherFeedback.message}</span>
+                </div>
               )}
 
               {/* Dev/Test Simulator Buttons (Midtrans & Sandbox) */}
