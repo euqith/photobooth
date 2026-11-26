@@ -31,6 +31,8 @@ import {
   Sliders,
   CheckCircle,
   Smartphone,
+  Images,
+  Film,
 } from 'lucide-react';
 import {
   CameraStatus,
@@ -38,6 +40,7 @@ import {
   ServerSettings,
   QrisTransaction,
   TemplateMetadata,
+  PhotoHistorySession,
 } from '../../shared/types';
 
 interface AdminDashboardProps {
@@ -49,7 +52,7 @@ interface AdminDashboardProps {
   isStandalone?: boolean;
 }
 
-type AdminTab = 'overview' | 'payment' | 'templates' | 'transactions' | 'hardware';
+type AdminTab = 'overview' | 'payment' | 'templates' | 'transactions' | 'gallery' | 'hardware';
 
 const DEFAULT_SETTINGS: ServerSettings = {
   countdownDuration: 5,
@@ -148,6 +151,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     voucherCount: 0,
   });
 
+  // Photo History Gallery State
+  const [photoSessions, setPhotoSessions] = useState<PhotoHistorySession[]>([]);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+  const [photoSearch, setPhotoSearch] = useState('');
+  const [photoFilter, setPhotoFilter] = useState<'ALL' | 'PRINT' | 'BOOMERANG'>('ALL');
+  const [selectedSession, setSelectedSession] = useState<PhotoHistorySession | null>(null);
+  const [selectedMediaMode, setSelectedMediaMode] = useState<'print' | 'strip' | 'poses' | 'boomerang'>('print');
+  const [isReprinting, setIsReprinting] = useState(false);
+  const [reprintMessage, setReprintMessage] = useState<string | null>(null);
+
   // Current Clock
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('id-ID'));
 
@@ -237,14 +250,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .catch((err) => console.error('Gagal mengambil transaksi:', err));
   };
 
+  const fetchPhotoHistory = () => {
+    setIsLoadingPhotos(true);
+    fetch(getApiUrl('/api/admin/photo-history'))
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.sessions)) {
+          setPhotoSessions(data.sessions);
+        }
+      })
+      .catch((err) => console.error('Gagal mengambil histori foto:', err))
+      .finally(() => setIsLoadingPhotos(false));
+  };
+
+  const handleReprintSession = async (sessionId: string) => {
+    setIsReprinting(true);
+    setReprintMessage(null);
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/reprint/${sessionId}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ copies: 1 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setReprintMessage(`Berhasil mengirim perintah cetak untuk sesi ${sessionId}`);
+      } else {
+        setReprintMessage(`Gagal cetak: ${data.message || 'Error printer'}`);
+      }
+    } catch (err: any) {
+      setReprintMessage(`Error: ${err?.message || 'Gagal koneksi'}`);
+    } finally {
+      setIsReprinting(false);
+      setTimeout(() => setReprintMessage(null), 5000);
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchStatus();
       fetchSettings();
       fetchTemplates();
       fetchTransactions();
+      fetchPhotoHistory();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'gallery') {
+      fetchPhotoHistory();
+    }
+  }, [activeTab, isAuthenticated]);
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -593,6 +649,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
 
               <button
+                onClick={() => setActiveTab('gallery')}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'gallery'
+                    ? 'bg-gradient-to-r from-pink-600/90 to-rose-600/90 text-white shadow-lg shadow-pink-600/25'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Images className="w-4 h-4 shrink-0" />
+                  <span>Log Histori Foto</span>
+                </div>
+                {photoSessions.length > 0 && (
+                  <span className="px-2 py-0.5 text-[10px] bg-pink-500/20 text-pink-300 font-mono rounded-full border border-pink-500/30">
+                    {photoSessions.length}
+                  </span>
+                )}
+              </button>
+
+              <button
                 onClick={() => setActiveTab('hardware')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'hardware'
@@ -633,6 +708,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {activeTab === 'payment' && 'Konfigurasi Pembayaran & Webhook'}
                 {activeTab === 'templates' && 'Pengelola Template Grid Strip'}
                 {activeTab === 'transactions' && 'Buku Transaksi & Keuangan'}
+                {activeTab === 'gallery' && 'Log Histori Foto & Galeri Tamu'}
                 {activeTab === 'hardware' && 'Status Perangkat Keras & Diagnostik'}
               </h2>
               <p className="text-gray-400 text-xs">
@@ -640,6 +716,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {activeTab === 'payment' && 'Pengaturan Midtrans QRIS, harga sesi, webhook gateway, dan voucher'}
                 {activeTab === 'templates' && 'Upload dan kelola frame strip foto (1333x1999) dengan auto-slot'}
                 {activeTab === 'transactions' && 'Rekapitulasi pembayaran QRIS dan export data sesi photobooth'}
+                {activeTab === 'gallery' && 'Koleksi foto cetak 4x6, strip foto, pose individual HD, dan video boomerang'}
                 {activeTab === 'hardware' && 'Manajemen koneksi Canon DSLR EOS 6D dan printer foto dye-sublimation'}
               </p>
             </div>
@@ -1712,7 +1789,507 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* ================= TAB 5: HARDWARE ================= */}
+            {/* ================= TAB 5: LOG HISTORI FOTO ================= */}
+            {activeTab === 'gallery' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Stats Header */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-[#111827] border border-gray-800/80 rounded-2xl flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                      <Images className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 font-medium">Total Sesi Foto</p>
+                      <p className="text-xl font-bold font-mono text-white">{photoSessions.length}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-[#111827] border border-gray-800/80 rounded-2xl flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      <Layers className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 font-medium">Dengan Strip 4x6</p>
+                      <p className="text-xl font-bold font-mono text-cyan-400">
+                        {photoSessions.filter((s) => s.hasPrint || s.hasStrip).length}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-[#111827] border border-gray-800/80 rounded-2xl flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <Film className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 font-medium">Video Boomerang</p>
+                      <p className="text-xl font-bold font-mono text-amber-400">
+                        {photoSessions.filter((s) => s.hasBoomerang).length}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-[#111827] border border-gray-800/80 rounded-2xl flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 font-medium">Total Pose Tersimpan</p>
+                      <p className="text-xl font-bold font-mono text-emerald-400">
+                        {photoSessions.reduce((acc, s) => acc + s.poseCount, 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reprint Message Banner */}
+                {reprintMessage && (
+                  <div className="p-4 bg-pink-950/40 border border-pink-500/40 rounded-2xl flex items-center justify-between text-xs text-pink-300 animate-fade-in shadow-lg">
+                    <div className="flex items-center gap-2">
+                      <Printer className="w-4 h-4 text-pink-400 shrink-0" />
+                      <span>{reprintMessage}</span>
+                    </div>
+                    <button
+                      onClick={() => setReprintMessage(null)}
+                      className="text-pink-400 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Search & Filter Bar */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-[#111827] p-4 rounded-2xl border border-gray-800/80">
+                  <div className="flex-1 w-full flex items-center gap-2 bg-[#161F30] px-3.5 py-2 rounded-xl border border-gray-800">
+                    <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Cari ID Sesi (contoh: mwvudlac) atau tanggal..."
+                      value={photoSearch}
+                      onChange={(e) => setPhotoSearch(e.target.value)}
+                      className="w-full bg-transparent text-xs text-gray-200 focus:outline-none placeholder-gray-500 font-mono"
+                    />
+                    {photoSearch && (
+                      <button
+                        onClick={() => setPhotoSearch('')}
+                        className="text-gray-400 hover:text-white cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                    <button
+                      onClick={() => setPhotoFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        photoFilter === 'ALL'
+                          ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                          : 'bg-[#161F30] text-gray-400 hover:text-white border border-gray-800'
+                      }`}
+                    >
+                      Semua ({photoSessions.length})
+                    </button>
+                    <button
+                      onClick={() => setPhotoFilter('PRINT')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        photoFilter === 'PRINT'
+                          ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                          : 'bg-[#161F30] text-gray-400 hover:text-white border border-gray-800'
+                      }`}
+                    >
+                      Strip Foto ({photoSessions.filter((s) => s.hasPrint || s.hasStrip).length})
+                    </button>
+                    <button
+                      onClick={() => setPhotoFilter('BOOMERANG')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        photoFilter === 'BOOMERANG'
+                          ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                          : 'bg-[#161F30] text-gray-400 hover:text-white border border-gray-800'
+                      }`}
+                    >
+                      Boomerang ({photoSessions.filter((s) => s.hasBoomerang).length})
+                    </button>
+
+                    <button
+                      onClick={fetchPhotoHistory}
+                      disabled={isLoadingPhotos}
+                      className="p-2 bg-[#161F30] hover:bg-gray-800 text-gray-300 border border-gray-800 rounded-xl transition-all cursor-pointer shrink-0"
+                      title="Refresh Log Foto"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isLoadingPhotos ? 'animate-spin text-pink-400' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Photo Cards Grid */}
+                {photoSessions.length === 0 ? (
+                  <div className="p-12 text-center bg-[#111827] border border-gray-800/80 rounded-3xl space-y-3">
+                    <Images className="w-12 h-12 text-gray-600 mx-auto" />
+                    <p className="text-gray-300 text-sm font-bold">Belum ada histori sesi foto</p>
+                    <p className="text-gray-500 text-xs">
+                      Foto dan video yang diambil oleh pengunjung kiosk akan otomatis tersimpan dan terarsip di sini.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {photoSessions
+                      .filter((s) => {
+                        const matchSearch =
+                          photoSearch === '' ||
+                          s.sessionId.toLowerCase().includes(photoSearch.toLowerCase()) ||
+                          new Date(s.createdAt).toLocaleDateString('id-ID').includes(photoSearch);
+                        if (!matchSearch) return false;
+                        if (photoFilter === 'PRINT') return s.hasPrint || s.hasStrip;
+                        if (photoFilter === 'BOOMERANG') return s.hasBoomerang;
+                        return true;
+                      })
+                      .map((session) => (
+                        <div
+                          key={session.sessionId}
+                          className="bg-[#111827] border border-gray-800/80 rounded-2xl overflow-hidden hover:border-pink-500/50 transition-all flex flex-col group shadow-lg"
+                        >
+                          {/* Image Thumbnail Box */}
+                          <div
+                            onClick={() => {
+                              setSelectedSession(session);
+                              setSelectedMediaMode(session.hasPrint ? 'print' : (session.hasStrip ? 'strip' : 'poses'));
+                            }}
+                            className="aspect-[2/3] bg-black/60 relative overflow-hidden cursor-pointer flex items-center justify-center"
+                          >
+                            {session.thumbUrl ? (
+                              <img
+                                src={getApiUrl(session.thumbUrl)}
+                                alt={`Sesi ${session.sessionId}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-gray-600">
+                                <Images className="w-8 h-8" />
+                                <span className="text-[10px]">No Thumbnail</span>
+                              </div>
+                            )}
+
+                            {/* Floating Badges */}
+                            <div className="absolute top-2 left-2 flex flex-col gap-1">
+                              <span className="px-2 py-0.5 bg-black/75 backdrop-blur-md rounded-md text-[10px] font-mono font-bold text-gray-200 border border-white/10 shadow">
+                                {new Date(session.createdAt).toLocaleDateString('id-ID', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                })}
+                              </span>
+                            </div>
+
+                            <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                              {session.hasPrint && (
+                                <span className="px-2 py-0.5 bg-pink-600/90 text-white rounded-md text-[9px] font-bold shadow">
+                                  4x6 Strip
+                                </span>
+                              )}
+                              {session.hasBoomerang && (
+                                <span className="px-2 py-0.5 bg-amber-500/90 text-black rounded-md text-[9px] font-bold shadow flex items-center gap-0.5">
+                                  <Film className="w-2.5 h-2.5" /> MP4
+                                </span>
+                              )}
+                              {session.poseCount > 0 && (
+                                <span className="px-2 py-0.5 bg-cyan-600/90 text-white rounded-md text-[9px] font-bold shadow">
+                                  {session.poseCount} Pose
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Hover Quick Preview Pill */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="px-3 py-1.5 bg-pink-600/90 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-1.5 transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                                <Eye className="w-3.5 h-3.5" /> Buka Detail
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Card Footer Info & Actions */}
+                          <div className="p-3 bg-[#0E1424] border-t border-gray-800/80 flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs font-bold text-pink-400 truncate max-w-[140px]">
+                                {session.sessionId}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-mono">
+                                {new Date(session.createdAt).toLocaleTimeString('id-ID', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-1.5 pt-1">
+                              {session.hasPrint ? (
+                                <button
+                                  onClick={() => handleReprintSession(session.sessionId)}
+                                  disabled={isReprinting}
+                                  className="py-1.5 px-2 bg-[#161F30] hover:bg-pink-950/60 hover:text-pink-300 text-gray-300 border border-gray-700/60 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                  title="Cetak Ulang Strip Foto ke Printer Kiosk"
+                                >
+                                  <Printer className="w-3 h-3 text-pink-400" />
+                                  <span>Cetak Ulang</span>
+                                </button>
+                              ) : (
+                                <div className="py-1.5 px-2 text-[10px] text-gray-500 text-center font-mono">
+                                  Non-cetak
+                                </div>
+                              )}
+
+                              <a
+                                href={getApiUrl(`/share/${session.sessionId}`)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="py-1.5 px-2 bg-[#161F30] hover:bg-gray-800 text-gray-300 border border-gray-700/60 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer text-center"
+                                title="Buka Halaman Mobile QR Tamu"
+                              >
+                                <ExternalLink className="w-3 h-3 text-cyan-400" />
+                                <span>QR Tamu</span>
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* Lightbox / Detail Modal */}
+                {selectedSession && (
+                  <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 animate-fade-in">
+                    <div className="bg-[#0D121F] border border-gray-800 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+                      {/* Modal Header */}
+                      <div className="px-6 py-4 bg-[#111827] border-b border-gray-800 flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-pink-500/10 rounded-xl text-pink-400 border border-pink-500/20">
+                            <Images className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-bold text-white">Sesi {selectedSession.sessionId}</h3>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(selectedSession.sessionId)}
+                                className="p-1 hover:text-pink-400 text-gray-400 transition-colors cursor-pointer"
+                                title="Salin Session ID"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-gray-400 font-mono">
+                              Waktu Pengambilan:{' '}
+                              {new Date(selectedSession.createdAt).toLocaleString('id-ID', {
+                                dateStyle: 'full',
+                                timeStyle: 'short',
+                              })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setSelectedSession(null)}
+                          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Modal View Selector Tabs */}
+                      <div className="px-6 py-2.5 bg-[#0A0E18] border-b border-gray-800/80 flex items-center gap-2 overflow-x-auto shrink-0">
+                        {selectedSession.hasPrint && (
+                          <button
+                            onClick={() => setSelectedMediaMode('print')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                              selectedMediaMode === 'print'
+                                ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                                : 'text-gray-400 hover:text-white bg-gray-800/40'
+                            }`}
+                          >
+                            Cetak 4x6 2-Up
+                          </button>
+                        )}
+                        {selectedSession.hasStrip && (
+                          <button
+                            onClick={() => setSelectedMediaMode('strip')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                              selectedMediaMode === 'strip'
+                                ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                                : 'text-gray-400 hover:text-white bg-gray-800/40'
+                            }`}
+                          >
+                            Strip Tunggal
+                          </button>
+                        )}
+                        {selectedSession.poses.length > 0 && (
+                          <button
+                            onClick={() => setSelectedMediaMode('poses')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                              selectedMediaMode === 'poses'
+                                ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                                : 'text-gray-400 hover:text-white bg-gray-800/40'
+                            }`}
+                          >
+                            Pose Individual HD ({selectedSession.poses.length})
+                          </button>
+                        )}
+                        {selectedSession.hasBoomerang && (
+                          <button
+                            onClick={() => setSelectedMediaMode('boomerang')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                              selectedMediaMode === 'boomerang'
+                                ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                                : 'text-gray-400 hover:text-white bg-gray-800/40'
+                            }`}
+                          >
+                            Video Boomerang
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Modal Preview Body */}
+                      <div className="flex-1 p-6 overflow-y-auto flex items-center justify-center bg-[#070B14]">
+                        {selectedMediaMode === 'print' && selectedSession.printUrl && (
+                          <div className="flex flex-col items-center gap-4 max-h-full">
+                            <img
+                              src={getApiUrl(selectedSession.printUrl)}
+                              alt="Print 4x6 2-Up"
+                              className="max-h-[55vh] object-contain rounded-xl border border-gray-800 shadow-2xl"
+                            />
+                            <div className="flex items-center gap-3">
+                              <a
+                                href={getApiUrl(selectedSession.printUrl)}
+                                download={`print_4x6_${selectedSession.sessionId}.jpg`}
+                                className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                              >
+                                <Download className="w-3.5 h-3.5 text-pink-400" /> Unduh File Cetak 4x6
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedMediaMode === 'strip' && selectedSession.stripUrl && (
+                          <div className="flex flex-col items-center gap-4 max-h-full">
+                            <img
+                              src={getApiUrl(selectedSession.stripUrl)}
+                              alt="Photo Strip"
+                              className="max-h-[55vh] object-contain rounded-xl border border-gray-800 shadow-2xl"
+                            />
+                            <div className="flex items-center gap-3">
+                              <a
+                                href={getApiUrl(selectedSession.stripUrl)}
+                                download={`strip_${selectedSession.sessionId}.jpg`}
+                                className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                              >
+                                <Download className="w-3.5 h-3.5 text-pink-400" /> Unduh Strip Foto
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedMediaMode === 'poses' && (
+                          <div className="w-full">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              {selectedSession.poses.map((poseUrl, idx) => (
+                                <div
+                                  key={idx}
+                                  className="bg-[#111827] p-2.5 rounded-2xl border border-gray-800 flex flex-col gap-2"
+                                >
+                                  <div className="aspect-[3/2] bg-black rounded-xl overflow-hidden relative flex items-center justify-center">
+                                    <img
+                                      src={getApiUrl(poseUrl)}
+                                      alt={`Pose ${idx + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <span className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-black/75 rounded text-[10px] font-bold text-white shadow">
+                                      Pose {idx + 1}
+                                    </span>
+                                  </div>
+                                  <a
+                                    href={getApiUrl(poseUrl)}
+                                    download={`pose_${idx + 1}_${selectedSession.sessionId}.jpg`}
+                                    className="w-full py-1.5 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700 rounded-lg text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
+                                  >
+                                    <Download className="w-3 h-3 text-cyan-400" /> Unduh Pose {idx + 1}
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedMediaMode === 'boomerang' && selectedSession.boomerangMp4Url && (
+                          <div className="flex flex-col items-center gap-4 max-h-full">
+                            <div className="aspect-[2/3] max-h-[50vh] bg-black rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">
+                              <video
+                                src={getApiUrl(selectedSession.boomerangMp4Url)}
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                controls
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <a
+                                href={getApiUrl(selectedSession.boomerangMp4Url)}
+                                download={`boomerang_${selectedSession.sessionId}.mp4`}
+                                className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-amber-600 text-white rounded-xl text-xs font-bold shadow-lg flex items-center gap-2"
+                              >
+                                <Download className="w-3.5 h-3.5" /> Unduh MP4
+                              </a>
+                              {selectedSession.boomerangGifUrl && (
+                                <a
+                                  href={getApiUrl(selectedSession.boomerangGifUrl)}
+                                  download={`boomerang_${selectedSession.sessionId}.gif`}
+                                  className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold flex items-center gap-2"
+                                >
+                                  <Download className="w-3.5 h-3.5" /> Unduh GIF
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Modal Footer Controls */}
+                      <div className="px-6 py-4 bg-[#111827] border-t border-gray-800 flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={getApiUrl(`/share/${selectedSession.sessionId}`)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700 rounded-xl text-xs font-bold flex items-center gap-2 transition-all"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-cyan-400" /> Buka Halaman Mobile Tamu
+                          </a>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {selectedSession.hasPrint && (
+                            <button
+                              onClick={() => handleReprintSession(selectedSession.sessionId)}
+                              disabled={isReprinting}
+                              className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-pink-600/30 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                            >
+                              <Printer className="w-4 h-4" />
+                              <span>{isReprinting ? 'Mengirim ke Printer...' : 'Cetak Ulang Sesi Ini'}</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedSession(null)}
+                            className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-bold cursor-pointer transition-all"
+                          >
+                            Tutup
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ================= TAB 6: HARDWARE ================= */}
             {activeTab === 'hardware' && (
               <div className="space-y-6 animate-fade-in">
                 {/* Camera Card */}

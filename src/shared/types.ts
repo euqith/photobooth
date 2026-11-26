@@ -92,6 +92,21 @@ export interface PrinterStatus {
   mode: 'dry-run' | 'cups' | 'windows-spooler';
 }
 
+export interface PhotoHistorySession {
+  sessionId: string;
+  createdAt: number;
+  hasPrint: boolean;
+  hasStrip: boolean;
+  printUrl: string | null;
+  stripUrl: string | null;
+  thumbUrl: string | null;
+  hasBoomerang: boolean;
+  boomerangMp4Url: string | null;
+  boomerangGifUrl: string | null;
+  poses: string[];
+  poseCount: number;
+}
+
 export interface PaymentSettings {
   mode: PaymentMode; // 'free' | 'paid'
   provider: PaymentProviderType; // 'sandbox' | 'midtrans' | 'xendit'

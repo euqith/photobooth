@@ -14,6 +14,7 @@ import { TemplateCompositor } from './template/compositor';
 import { TemplateInspectorService } from './template/templateInspector';
 import { PaymentManager } from './payment/paymentManager';
 import { SettingsManager } from './config/settingsManager';
+import { PhotoHistorySession } from '../shared/types';
 
 const app = express();
 const server = http.createServer(app);
@@ -247,6 +248,100 @@ app.delete('/api/admin/templates/:id', (req, res) => {
   res.json({ success });
 });
 
+// Photo Sessions History API for Admin
+app.get('/api/admin/photo-history', async (req, res) => {
+  try {
+    const sessionsDir = path.join(outputDir, 'sessions');
+    if (!fs.existsSync(sessionsDir)) {
+      return res.json({ success: true, sessions: [], total: 0 });
+    }
+
+    const entries = fs.readdirSync(sessionsDir, { withFileTypes: true });
+    const sessionList: PhotoHistorySession[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const sessionId = entry.name;
+      const sessionPath = path.join(sessionsDir, sessionId);
+
+      try {
+        const stats = fs.statSync(sessionPath);
+        const printPath = path.join(sessionPath, 'print_4x6_2up.jpg');
+        const stripPath = path.join(sessionPath, 'print_4x6_2up_strip.jpg');
+        const thumbPath = path.join(sessionPath, 'print_4x6_2up_thumb.jpg');
+        const mp4Path = path.join(sessionPath, 'boomerang.mp4');
+        const gifPath = path.join(sessionPath, 'boomerang.gif');
+
+        const hasPrint = fs.existsSync(printPath);
+        const hasStrip = fs.existsSync(stripPath);
+        const hasThumb = fs.existsSync(thumbPath);
+        const hasBoomerang = fs.existsSync(mp4Path);
+
+        const poses: string[] = [];
+        for (let i = 1; i <= 8; i++) {
+          const posePath = path.join(sessionPath, `pose_${i}.jpg`);
+          if (fs.existsSync(posePath)) {
+            poses.push(`/output/sessions/${sessionId}/pose_${i}.jpg`);
+          }
+        }
+
+        // Only include sessions that have at least one media asset
+        if (hasPrint || hasStrip || hasBoomerang || poses.length > 0) {
+          sessionList.push({
+            sessionId,
+            createdAt: stats.mtimeMs || stats.birthtimeMs || Date.now(),
+            hasPrint,
+            hasStrip,
+            printUrl: hasPrint ? `/output/sessions/${sessionId}/print_4x6_2up.jpg` : null,
+            stripUrl: hasStrip ? `/output/sessions/${sessionId}/print_4x6_2up_strip.jpg` : null,
+            thumbUrl: hasThumb
+              ? `/output/sessions/${sessionId}/print_4x6_2up_thumb.jpg`
+              : hasStrip
+              ? `/output/sessions/${sessionId}/print_4x6_2up_strip.jpg`
+              : hasPrint
+              ? `/output/sessions/${sessionId}/print_4x6_2up.jpg`
+              : poses[0] || null,
+            hasBoomerang,
+            boomerangMp4Url: hasBoomerang ? `/output/sessions/${sessionId}/boomerang.mp4` : null,
+            boomerangGifUrl: fs.existsSync(gifPath) ? `/output/sessions/${sessionId}/boomerang.gif` : null,
+            poses,
+            poseCount: poses.length,
+          });
+        }
+      } catch {
+        // ignore unreadable session dirs
+      }
+    }
+
+    // Sort by createdAt descending (newest first)
+    sessionList.sort((a, b) => b.createdAt - a.createdAt);
+
+    res.json({
+      success: true,
+      sessions: sessionList,
+      total: sessionList.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Gagal memuat histori sesi foto' });
+  }
+});
+
+// Admin Reprint Endpoint
+app.post('/api/admin/reprint/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const copies = parseInt(req.body?.copies || '1', 10) || 1;
+    const sessionPrintPath = path.join(outputDir, 'sessions', sessionId, 'print_4x6_2up.jpg');
+    if (!fs.existsSync(sessionPrintPath)) {
+      return res.status(404).json({ success: false, message: 'File cetak sesi (4x6 2-up) tidak ditemukan.' });
+    }
+    const printResult = await printerService.print(sessionPrintPath, copies);
+    res.json(printResult);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Gagal mengirim perintah cetak ulang' });
+  }
+});
+
 // Mobile QR Code Landing Page for Guests
 app.get('/share/:sessionId', async (req, res) => {
   const { sessionId } = req.params;
@@ -456,7 +551,10 @@ app.get('/admin', (req, res) => {
 });
 
 // Single Page Application (SPA) routing fallback
-app.get('*', (req, res, next) => {
+app.use((req, res, next) => {
+  if (req.method !== 'GET') {
+    return next();
+  }
   if (
     req.path.startsWith('/api') ||
     req.path.startsWith('/output') ||
