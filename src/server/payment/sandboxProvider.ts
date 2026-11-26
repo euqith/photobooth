@@ -10,8 +10,9 @@ export class SandboxPaymentProvider implements IPaymentProvider {
     const rawQrString = `00020101021226600016ID.CO.QRIS.WWW0118936009110000000000520458125303360540${amount}5802ID5919PHOTOBOOTH SANDBOX6007JAKARTA62070703A016304${orderId.substring(0, 4).toUpperCase()}`;
 
     const qrDataUri = await qrcode.toDataURL(rawQrString, {
-      margin: 1,
-      width: 400,
+      margin: 2,
+      width: 600,
+      errorCorrectionLevel: 'M',
       color: { dark: '#000000', light: '#FFFFFF' },
     });
 

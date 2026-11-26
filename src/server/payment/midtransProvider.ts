@@ -67,7 +67,12 @@ export class MidtransPaymentProvider implements IPaymentProvider {
     const qrString = data.qr_string || '';
     const midtransQrActionUrl = data.actions?.find((a: any) => a.name === 'generate-qr-code')?.url || '';
     const qrImageUrl = qrString
-      ? await qrcode.toDataURL(qrString, { margin: 1, width: 400 })
+      ? await qrcode.toDataURL(qrString, {
+          margin: 2,
+          width: 600,
+          errorCorrectionLevel: 'M',
+          color: { dark: '#000000', light: '#FFFFFF' },
+        })
       : midtransQrActionUrl;
 
     return {
