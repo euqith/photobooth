@@ -9,6 +9,7 @@ import { ShotReviewModal } from './components/ShotReviewModal';
 import { ProcessingScreen } from './components/ProcessingScreen';
 import { ResultShareScreen } from './components/ResultShareScreen';
 import { AdminDashboard } from './components/AdminDashboard';
+import { LoadingScreen } from './components/LoadingScreen';
 
 export const App: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -19,6 +20,16 @@ export const App: React.FC = () => {
   const [isFlashing, setIsFlashing] = useState<boolean>(false);
   const [showAdmin, setShowAdmin] = useState<boolean>(false);
   const [adminTapCount, setAdminTapCount] = useState<number>(0);
+  const [isStartingSession, setIsStartingSession] = useState<boolean>(false);
+  const [loadingInfo, setLoadingInfo] = useState<{ active: boolean; message?: string; subMessage?: string }>({
+    active: false,
+  });
+
+  const isAdminRoute = typeof window !== 'undefined' && (
+    window.location.pathname.startsWith('/admin') ||
+    window.location.search.includes('admin=true') ||
+    window.location.hash.includes('admin')
+  );
 
   // Initialize Socket.io connection
   useEffect(() => {
@@ -35,6 +46,15 @@ export const App: React.FC = () => {
       setSession(data.session);
       setState(data.state);
       setCountdown(data.countdown || 0);
+      setIsStartingSession(false);
+      setLoadingInfo({ active: false });
+    });
+
+    s.on('session:loading', (info: { active: boolean; message?: string; subMessage?: string }) => {
+      setLoadingInfo(info);
+      if (!info.active) {
+        setIsStartingSession(false);
+      }
     });
 
     s.on('session:countdown_tick', (data: { count: number }) => {
@@ -93,6 +113,7 @@ export const App: React.FC = () => {
   };
 
   const startSession = () => {
+    setIsStartingSession(true);
     socket?.emit('session:start');
   };
 
@@ -136,8 +157,38 @@ export const App: React.FC = () => {
     socket?.emit('payment:applyVoucher', code);
   };
 
+  if (isAdminRoute) {
+    return (
+      <div className="relative w-screen h-screen overflow-hidden bg-black font-sans select-none">
+        <AdminDashboard
+          isStandalone
+          onClose={() => {
+            window.location.href = '/';
+          }}
+          onSetCameraProvider={(prov) => socket?.emit('admin:setCameraProvider', prov)}
+          onSetPrinterDryRun={(dry) => socket?.emit('admin:setPrinterDryRun', dry)}
+          onTestPrint={() => socket?.emit('admin:testPrint')}
+          onTestShot={() => socket?.emit('admin:testShot')}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black font-sans select-none">
+      {/* 0. Instant Loading Overlay when Starting Session & Generating QRIS */}
+      {(isStartingSession || loadingInfo.active) && (
+        <LoadingScreen
+          message={loadingInfo.message || 'Menyiapkan Sesi Photobooth...'}
+          subMessage={loadingInfo.subMessage || 'Sedang menghubungkan ke gateway dan membuat kode QRIS resmi...'}
+          onCancel={() => {
+            setIsStartingSession(false);
+            setLoadingInfo({ active: false });
+            endSession();
+          }}
+        />
+      )}
+
       {/* 1. Attract Screen (IDLE) */}
       {state === 'IDLE' && (
         <AttractScreen onStart={startSession} onAdminTap={handleAdminTap} />

@@ -66,7 +66,13 @@ export class SessionManager {
     const paymentSettings = this.settingsManager.getSettings().payment;
     // Commercial Flow: QRIS Payment BEFORE template selection
     if (paymentSettings.mode === 'paid') {
+      this.io.emit('session:loading', {
+        active: true,
+        message: 'Menyiapkan Kode QRIS Pembayaran...',
+        subMessage: 'Menghubungkan ke gateway pembayaran dan men-generate QRIS...',
+      });
       await this.requestPayment();
+      this.io.emit('session:loading', { active: false });
       return this.currentSession;
     }
 
@@ -136,6 +142,7 @@ export class SessionManager {
       );
     } catch (err: any) {
       console.error('[SessionManager] Payment request error:', err);
+      this.io.emit('session:loading', { active: false, error: err?.message });
       this.currentSession.errorMessage = err?.message || 'Gagal memproses QRIS';
       this.currentSession.state = 'ERROR';
       this.broadcastState();

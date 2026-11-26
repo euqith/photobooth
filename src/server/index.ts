@@ -77,6 +77,17 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
+// Network Info for Remote Admin Access
+app.get('/api/network-info', (req, res) => {
+  const ip = getLocalIp();
+  res.json({
+    localIp: ip,
+    port: PORT,
+    adminUrl: `http://${ip}:${PORT}/admin`,
+    kioskUrl: `http://${ip}:${PORT}/`,
+  });
+});
+
 // Settings API
 app.get('/api/admin/settings', (req, res) => {
   res.json({
@@ -435,6 +446,32 @@ app.get('/api/qr/:sessionId', async (req, res) => {
   }
 });
 
+// Dedicated Admin Route (Accessible from other devices on the same LAN/Wi-Fi)
+app.get('/admin', (req, res) => {
+  const indexHtml = path.resolve(__dirname, '../../dist/renderer/index.html');
+  if (fs.existsSync(indexHtml)) {
+    return res.sendFile(indexHtml);
+  }
+  res.redirect('/?admin=true');
+});
+
+// Single Page Application (SPA) routing fallback
+app.get('*', (req, res, next) => {
+  if (
+    req.path.startsWith('/api') ||
+    req.path.startsWith('/output') ||
+    req.path.startsWith('/share') ||
+    req.path.startsWith('/socket.io')
+  ) {
+    return next();
+  }
+  const indexHtml = path.resolve(__dirname, '../../dist/renderer/index.html');
+  if (fs.existsSync(indexHtml)) {
+    return res.sendFile(indexHtml);
+  }
+  next();
+});
+
 // Socket.io real-time connection
 io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
@@ -549,10 +586,13 @@ export function startServer(port = PORT): Promise<void> {
       console.log(`📸 Photobooth Server running on:`);
       console.log(`👉 Local:   http://localhost:${port}`);
       console.log(`👉 Network: http://${getLocalIp()}:${port}`);
+      console.log(`👉 Admin:   http://${getLocalIp()}:${port}/admin`);
       console.log(`========================================\n`);
       cameraManager.initialize().then((health) => {
         console.log(`[Camera] Initialized: ${health.model} (Connected: ${health.connected})`);
       });
+      // Pre-warm DNS & HTTPS connection pool to Midtrans Sandbox to eliminate first-touch latency
+      fetch('https://api.sandbox.midtrans.com/v2/token', { method: 'HEAD' }).catch(() => {});
       resolve();
     });
   });

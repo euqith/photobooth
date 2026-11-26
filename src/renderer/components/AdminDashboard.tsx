@@ -30,6 +30,7 @@ import {
   LogOut,
   Sliders,
   CheckCircle,
+  Smartphone,
 } from 'lucide-react';
 import {
   CameraStatus,
@@ -45,6 +46,7 @@ interface AdminDashboardProps {
   onSetPrinterDryRun: (dryRun: boolean) => void;
   onTestPrint: () => void;
   onTestShot?: () => void;
+  isStandalone?: boolean;
 }
 
 type AdminTab = 'overview' | 'payment' | 'templates' | 'transactions' | 'hardware';
@@ -91,10 +93,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSetCameraProvider,
   onSetPrinterDryRun,
   onTestPrint,
+  isStandalone = false,
 }) => {
   const [pin, setPin] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [networkInfo, setNetworkInfo] = useState<{ localIp: string; adminUrl: string; kioskUrl: string } | null>(null);
+  const [copiedAdminUrl, setCopiedAdminUrl] = useState(false);
 
   // Hardware Status
   const [cameraStatus, setCameraStatus] = useState<CameraStatus | null>(null);
@@ -180,6 +185,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       })
       .catch((err) => console.error('Failed to fetch health status:', err))
       .finally(() => setIsRefreshing(false));
+
+    fetch(getApiUrl('/api/network-info'))
+      .then((res) => res.json())
+      .then((data) => setNetworkInfo(data))
+      .catch(() => {});
   };
 
   const fetchSettings = () => {
@@ -608,7 +618,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="w-full py-2.5 px-3 bg-gray-800/80 hover:bg-rose-950/60 hover:text-rose-300 text-gray-300 border border-gray-700/60 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <LogOut className="w-4 h-4" />
-              <span>Keluar / Tutup Admin</span>
+              <span>{isStandalone ? 'Kembali ke Photobooth Kiosk' : 'Keluar / Tutup Admin'}</span>
             </button>
           </div>
         </div>
@@ -753,6 +763,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Rp {(settings.payment.sessionPrice ?? 0).toLocaleString('id-ID')} / sesi
                     </span>
                   </div>
+                </div>
+
+                {/* Remote Admin Access Banner Card */}
+                <div className="p-5 bg-gradient-to-r from-pink-950/40 via-[#111827] to-[#161F30] border border-pink-500/30 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 shrink-0">
+                      <Smartphone className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>Akses Admin Jarak Jauh (HP / Laptop Lain)</span>
+                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-md text-[10px] font-mono font-bold">LAN Terhubung</span>
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Buka link di bawah pada browser HP atau laptop di jaringan Wi-Fi yang sama untuk mengontrol photobooth:
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <code className="px-3 py-1 bg-black/60 border border-gray-800 rounded-xl text-xs font-mono text-pink-300 select-all font-bold">
+                          {networkInfo?.adminUrl || `http://${window.location.hostname}:4000/admin`}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = networkInfo?.adminUrl || `http://${window.location.hostname}:4000/admin`;
+                            navigator.clipboard.writeText(url);
+                            setCopiedAdminUrl(true);
+                            setTimeout(() => setCopiedAdminUrl(false), 2000);
+                          }}
+                          className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          {copiedAdminUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedAdminUrl ? 'Disalin!' : 'Salin URL'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <a
+                    href={networkInfo?.adminUrl || `http://${window.location.hostname}:4000/admin`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-md shadow-pink-600/30"
+                  >
+                    <span>Buka di Tab Baru</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
                 </div>
 
                 {/* Quick Controls Section */}
