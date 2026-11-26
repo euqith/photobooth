@@ -34,3 +34,154 @@
 .flash-screen {
   animation: flashWhite 0.6s ease-out forwards;
 }
+
+/* =========================================================
+   ADMIN DASHBOARD: DAY / LIGHT MODE & DARK MODE STYLING
+   ========================================================= */
+
+.admin-day-mode {
+  color-scheme: light;
+}
+
+.admin-dark-mode {
+  color-scheme: dark;
+}
+
+/* Day Mode Backgrounds */
+.admin-day-mode .bg-\[\#090D16\],
+.admin-day-mode .bg-\[\#0B0F19\],
+.admin-day-mode .bg-\[\#070B14\] {
+  background-color: #f8fafc !important;
+}
+
+.admin-day-mode .bg-\[\#0D121F\],
+.admin-day-mode .bg-\[\#0D121F\]\/90,
+.admin-day-mode .bg-\[\#0A0E18\],
+.admin-day-mode .bg-\[\#0E1424\] {
+  background-color: #ffffff !important;
+}
+
+.admin-day-mode .bg-\[\#111827\] {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04) !important;
+}
+
+.admin-day-mode .bg-\[\#161F30\],
+.admin-day-mode .bg-\[\#161F30\]\/40,
+.admin-day-mode .bg-\[\#161F30\]\/60 {
+  background-color: #f1f5f9 !important;
+}
+
+.admin-day-mode .bg-gray-800,
+.admin-day-mode .bg-gray-800\/40,
+.admin-day-mode .bg-gray-800\/50,
+.admin-day-mode .bg-gray-800\/60,
+.admin-day-mode .bg-gray-800\/80 {
+  background-color: #e2e8f0 !important;
+}
+
+/* Day Mode Borders & Divides */
+.admin-day-mode .border-gray-800,
+.admin-day-mode .border-gray-800\/40,
+.admin-day-mode .border-gray-800\/50,
+.admin-day-mode .border-gray-800\/60,
+.admin-day-mode .border-gray-800\/80,
+.admin-day-mode .border-gray-700,
+.admin-day-mode .border-gray-700\/40,
+.admin-day-mode .border-gray-700\/60,
+.admin-day-mode .border-gray-700\/80 {
+  border-color: #e2e8f0 !important;
+}
+
+.admin-day-mode .divide-gray-800,
+.admin-day-mode .divide-gray-800\/60 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Day Mode Text Colors */
+.admin-day-mode .text-white {
+  color: #0f172a !important;
+}
+
+.admin-day-mode .text-gray-200,
+.admin-day-mode .text-gray-300 {
+  color: #334155 !important;
+}
+
+.admin-day-mode .text-gray-400 {
+  color: #64748b !important;
+}
+
+.admin-day-mode .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.admin-day-mode input,
+.admin-day-mode select,
+.admin-day-mode textarea {
+  color: #0f172a !important;
+}
+
+/* Day Mode Hover States */
+.admin-day-mode .hover\:bg-gray-800:hover,
+.admin-day-mode .hover\:bg-gray-800\/50:hover,
+.admin-day-mode .hover\:bg-gray-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+.admin-day-mode .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+/* Day Mode Badges & Soft Colored Alerts */
+.admin-day-mode .bg-emerald-950\/40 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+.admin-day-mode .bg-amber-950\/40,
+.admin-day-mode .bg-amber-950\/60 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+.admin-day-mode .bg-pink-950\/40 {
+  background-color: #fdf2f8 !important;
+  border-color: #fbcfe8 !important;
+  color: #be185d !important;
+}
+
+.admin-day-mode .bg-rose-950\/40,
+.admin-day-mode .bg-rose-950\/60 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #be123c !important;
+}
+
+.admin-day-mode .bg-cyan-950\/40 {
+  background-color: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  color: #0e7490 !important;
+}
+
+/* Ensure saturated buttons & gradients always retain crisp white text */
+.admin-day-mode button.bg-pink-600,
+.admin-day-mode .bg-gradient-to-r,
+.admin-day-mode .bg-gradient-to-r * {
+  color: #ffffff !important;
+}
+.admin-day-mode button.bg-pink-600 * {
+  color: #ffffff !important;
+}
+.admin-day-mode button.bg-emerald-600,
+.admin-day-mode button.bg-emerald-600 * {
+  color: #ffffff !important;
+}
+.admin-day-mode .bg-black\/75 {
+  color: #ffffff !important;
+}
+.admin-day-mode .bg-black\/75 * {
+  color: #ffffff !important;
+}

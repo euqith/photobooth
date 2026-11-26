@@ -33,6 +33,8 @@ import {
   Smartphone,
   Images,
   Film,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import {
   CameraStatus,
@@ -103,6 +105,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [networkInfo, setNetworkInfo] = useState<{ localIp: string; adminUrl: string; kioskUrl: string } | null>(null);
   const [copiedAdminUrl, setCopiedAdminUrl] = useState(false);
+
+  // Day Mode / Dark Mode Theme State
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('photobooth_admin_theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    }
+    return 'dark';
+  });
+
+  const toggleTheme = (newTheme?: 'dark' | 'light') => {
+    const next = newTheme || (theme === 'dark' ? 'light' : 'dark');
+    setTheme(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('photobooth_admin_theme', next);
+    }
+  };
 
   // Hardware Status
   const [cameraStatus, setCameraStatus] = useState<CameraStatus | null>(null);
@@ -580,7 +599,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-3 md:p-6 animate-fade-in font-sans">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 animate-fade-in font-sans ${
+        theme === 'light'
+          ? 'admin-day-mode bg-slate-900/35 backdrop-blur-xl'
+          : 'admin-dark-mode bg-black/85 backdrop-blur-xl'
+      }`}
+    >
       <div className="bg-[#090D16] border border-gray-800/80 rounded-3xl w-full max-w-7xl h-[94vh] flex shadow-2xl overflow-hidden">
         {/* ================= LEFT SIDEBAR ================= */}
         <div className="w-64 bg-[#0D121F] border-r border-gray-800/80 flex flex-col justify-between p-4 shrink-0">
@@ -688,6 +713,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span className="text-pink-400 font-bold">Admin (Kiosk Owner)</span>
             </div>
 
+            <div className="px-3 py-2 bg-[#161F30]/40 rounded-xl border border-gray-800/50 flex items-center justify-between text-[11px]">
+              <span className="text-gray-400">Tema Admin:</span>
+              <button
+                type="button"
+                onClick={() => toggleTheme()}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#161F30] hover:bg-pink-600 hover:text-white text-pink-400 border border-gray-700/60 font-bold transition-all cursor-pointer"
+                title="Ganti Tema Dark Mode / Day Mode"
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Moon className="w-3 h-3" />
+                    <span>Dark Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun className="w-3 h-3 text-amber-500" />
+                    <span>Day Mode</span>
+                  </>
+                )}
+              </button>
+            </div>
+
             <button
               onClick={onClose}
               className="w-full py-2.5 px-3 bg-gray-800/80 hover:bg-rose-950/60 hover:text-rose-300 text-gray-300 border border-gray-700/60 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
@@ -754,6 +801,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>{settings.dryRunPrinter ? 'Printer: Dry Run' : 'Printer: Siap'}</span>
+              </div>
+
+              {/* Theme Switcher Toggle (Dark / Day Mode) */}
+              <div className="flex items-center bg-[#161F30] p-1 rounded-xl border border-gray-700/60">
+                <button
+                  type="button"
+                  onClick={() => toggleTheme('dark')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    theme === 'dark'
+                      ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Aktifkan Dark Mode (Tema Gelap)"
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Dark</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleTheme('light')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    theme === 'light'
+                      ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Aktifkan Day Mode (Tema Terang)"
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Day</span>
+                </button>
               </div>
 
               {/* Refresh Button */}
@@ -991,6 +1068,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           }`}
                         >
                           Canon gphoto2
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Theme Mode Toggle (Dark vs Day Mode) */}
+                    <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-white block">Tema Tampilan Admin</span>
+                        <span className="text-xs text-gray-400">
+                          {theme === 'dark'
+                            ? 'Mode Gelap (Cyberpunk Dark Mode) aktif'
+                            : 'Mode Terang (Daylight Clean Mode) aktif'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-[#0D121F] p-1 rounded-xl border border-gray-700/60">
+                        <button
+                          type="button"
+                          onClick={() => toggleTheme('dark')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            theme === 'dark'
+                              ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                          title="Gunakan Tema Gelap"
+                        >
+                          <Moon className="w-3.5 h-3.5" />
+                          <span>Dark Mode</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleTheme('light')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            theme === 'light'
+                              ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                          title="Gunakan Tema Terang"
+                        >
+                          <Sun className="w-3.5 h-3.5" />
+                          <span>Day Mode</span>
                         </button>
                       </div>
                     </div>
