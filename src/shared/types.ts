@@ -93,6 +93,8 @@ export interface PrinterStatus {
   hardwareConnected?: boolean;
   detectedPrinters?: string[];
   message?: string;
+  isHiTiP510S?: boolean;
+  rollCapacity?: number;
 }
 
 export interface PhotoHistorySession {

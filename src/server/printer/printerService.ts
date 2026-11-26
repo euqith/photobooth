@@ -6,12 +6,14 @@ import { PrinterStatus } from '../../shared/types';
 export class PrinterService {
   private static instance: PrinterService;
   private isPrinting = false;
-  private paperRemaining = 300; // default roll counter
+  private paperRemaining = 330; // HiTi P510S standard roll capacity (330 prints)
+  private rollCapacity = 330;
   private dryRun = true;
   private printerName = 'Default_Photo_Printer';
   private lastDetectTime = 0;
   private cachedHardwareConnected = false;
   private cachedPrinters: string[] = [];
+  private isHiTiP510S = false;
 
   private constructor() {
     this.dryRun = process.env.PRINTER_DRY_RUN !== 'false';
@@ -26,7 +28,7 @@ export class PrinterService {
     return PrinterService.instance;
   }
 
-  public detectHardwarePrinters(): { connected: boolean; printers: string[]; activeName: string } {
+  public detectHardwarePrinters(): { connected: boolean; printers: string[]; activeName: string; isHiTi: boolean } {
     const now = Date.now();
     // Cache for 3 seconds to avoid subprocess spamming
     if (now - this.lastDetectTime < 3000 && this.lastDetectTime > 0) {
@@ -34,6 +36,7 @@ export class PrinterService {
         connected: this.cachedHardwareConnected,
         printers: this.cachedPrinters,
         activeName: this.printerName,
+        isHiTi: this.isHiTiP510S,
       };
     }
 
@@ -79,18 +82,43 @@ export class PrinterService {
     this.cachedPrinters = detected;
     this.cachedHardwareConnected = detected.length > 0;
 
+    // Automatic Plug & Play Detection with HiTi P510S as Top Priority
+    let autoMatchedHiTi = false;
     if (detected.length > 0) {
-      if (detected.includes(this.printerName)) {
-        // Keeps selected printerName
+      // 1. Priority #1: Look for HiTi P510S specifically
+      const hitiP510Match = detected.find((p) => /hiti.*p510|p510s/i.test(p));
+      const generalHitiMatch = detected.find((p) => /hiti/i.test(p));
+      const dyesubMatch = detected.find((p) => /dnp|rx1|ds620|citizen|sinfonia|selphy/i.test(p));
+
+      if (hitiP510Match) {
+        this.printerName = hitiP510Match;
+        this.isHiTiP510S = true;
+        this.rollCapacity = 330;
+        autoMatchedHiTi = true;
+      } else if (generalHitiMatch) {
+        this.printerName = generalHitiMatch;
+        this.isHiTiP510S = true;
+        this.rollCapacity = 330;
+        autoMatchedHiTi = true;
+      } else if (detected.includes(this.printerName)) {
+        // Operator manually selected an installed printer
+        this.isHiTiP510S = /hiti.*p510|p510s/i.test(this.printerName);
+      } else if (dyesubMatch) {
+        this.printerName = dyesubMatch;
+        this.isHiTiP510S = false;
       } else if (this.printerName === 'Default_Photo_Printer' || !this.printerName) {
         this.printerName = detected[0];
+        this.isHiTiP510S = /hiti.*p510|p510s/i.test(this.printerName);
       }
+    } else {
+      this.isHiTiP510S = false;
     }
 
     return {
       connected: this.cachedHardwareConnected,
       printers: this.cachedPrinters,
       activeName: this.printerName,
+      isHiTi: this.isHiTiP510S || autoMatchedHiTi,
     };
   }
 
@@ -104,10 +132,12 @@ export class PrinterService {
       name: hw.connected
         ? hw.activeName
         : this.dryRun
-        ? `${this.printerName} (Simulasi)`
+        ? `${this.printerName} (Simulasi HiTi P510S)`
         : 'Tidak Ada Printer Terhubung',
       isPrinting: this.isPrinting,
       paperRemaining: this.paperRemaining,
+      rollCapacity: this.rollCapacity,
+      isHiTiP510S: hw.isHiTi,
       mode: this.dryRun
         ? 'dry-run'
         : process.platform === 'win32'
@@ -115,10 +145,12 @@ export class PrinterService {
         : 'cups',
       detectedPrinters: hw.printers,
       message: hw.connected
-        ? `Printer ${hw.activeName} terhubung`
+        ? hw.isHiTi
+          ? `Printer HiTi P510S terhubung & siap mencetak (Auto-Detected Plug & Play)`
+          : `Printer ${hw.activeName} terhubung`
         : this.dryRun
-        ? 'Mode simulasi Dry-Run aktif (tanpa printer fisik)'
-        : 'Tidak ada printer fisik terdeteksi di sistem OS',
+        ? 'Mode simulasi Dry-Run aktif (Profil: HiTi P510S 4x6)'
+        : 'Tidak ada printer fisik terdeteksi di sistem OS (Colokkan kabel USB HiTi P510S)',
     };
   }
 
@@ -128,10 +160,12 @@ export class PrinterService {
 
   public setPrinterName(name: string): void {
     this.printerName = name;
+    this.isHiTiP510S = /hiti.*p510|p510s/i.test(name);
   }
 
-  public resetPaperCounter(count = 700): void {
+  public resetPaperCounter(count = 330): void {
     this.paperRemaining = count;
+    this.rollCapacity = count;
   }
 
   public async print(filePath: string, copies = 1): Promise<{ success: boolean; message: string }> {
@@ -149,49 +183,55 @@ export class PrinterService {
         return {
           success: false,
           message:
-            'Gagal mencetak: Tidak ada printer fisik yang terhubung ke kiosk. Pastikan kabel printer USB terhubung atau aktifkan Mode Dry-Run.',
+            'Gagal mencetak: Tidak ada printer fisik yang terhubung ke kiosk. Hubungkan kabel USB HiTi P510S atau aktifkan Mode Dry-Run.',
         };
       }
     }
 
     this.isPrinting = true;
-    console.log(`[Printer] Received print job for ${filePath} (${copies} copies, mode: ${this.dryRun ? 'DRY-RUN' : 'HARDWARE'})`);
+    console.log(`[Printer] Received print job for ${filePath} (${copies} copies, target: ${this.printerName}, mode: ${this.dryRun ? 'DRY-RUN' : 'HARDWARE'})`);
 
     try {
       if (this.dryRun) {
-        // Simulate printer spooling delay
+        // Simulate printer spooling delay for HiTi P510S (approx 12 seconds per 4x6 print)
         await new Promise((resolve) => setTimeout(resolve, 2000));
         this.paperRemaining = Math.max(0, this.paperRemaining - copies);
         return {
           success: true,
-          message: `Simulasi cetak ${copies} lembar berhasil diselesaikan (Mode Dry-Run).`,
+          message: `Simulasi cetak ${copies} lembar (HiTi P510S Profile) berhasil diselesaikan.`,
         };
       }
 
-      // Windows Production Silent Print via SumatraPDF or native spooler
+      // Windows Production Silent Print via Native .NET System.Drawing or SumatraPDF
       if (process.platform === 'win32') {
         const sumatraPath = path.resolve(__dirname, '../../../bin/SumatraPDF.exe');
         if (fs.existsSync(sumatraPath)) {
           for (let i = 0; i < copies; i++) {
-            execSync(`"${sumatraPath}" -print-to "${this.printerName}" -silent "${filePath}"`);
+            execSync(`"${sumatraPath}" -print-to "${this.printerName}" -print-settings "fit,paper=4x6" -silent "${filePath}"`);
           }
         } else {
-          // Fallback to powershell print
-          for (let i = 0; i < copies; i++) {
-            execSync(`powershell -Command "Start-Process -FilePath '${filePath}' -Verb Print -PassThru | Out-Null"`);
-          }
+          // Native Windows PowerShell C# silent print directly to the HiTi P510S driver
+          const escapedPath = filePath.replace(/\\/g, '\\\\').replace(/'/g, "''");
+          const escapedPrinter = this.printerName.replace(/'/g, "''");
+          const psCommand = `powershell -NoProfile -Command "Add-Type -AssemblyName System.Drawing; $p = '${escapedPrinter}'; $f = '${escapedPath}'; $doc = New-Object System.Drawing.Printing.PrintDocument; $doc.PrinterSettings.PrinterName = $p; $doc.PrinterSettings.Copies = ${copies}; $doc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0); $doc.DefaultPageSettings.Landscape = $false; $img = [System.Drawing.Image]::FromFile($f); $doc.add_PrintPage({ param($s, $e) $e.Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic; $e.Graphics.DrawImage($img, $e.PageBounds); }); $doc.Print(); $img.Dispose(); $doc.Dispose();"`;
+          execSync(psCommand, { timeout: 20000 });
         }
       } else {
-        // macOS Dev / Linux CUPS 'lp'
+        // macOS Dev / Linux CUPS 'lp' for HiTi P510S borderless 4x6
         for (let i = 0; i < copies; i++) {
-          execSync(`lp -d "${this.printerName}" -o media=4x6 -o fit-to-page "${filePath}"`);
+          try {
+            execSync(`lp -d "${this.printerName}" -o media=4x6 -o fit-to-page -o landscape=false "${filePath}"`, { timeout: 15000 });
+          } catch {
+            // Gutenprint fallback option
+            execSync(`lp -d "${this.printerName}" -o PageSize=w288h432 "${filePath}"`, { timeout: 15000 });
+          }
         }
       }
 
       this.paperRemaining = Math.max(0, this.paperRemaining - copies);
       return {
         success: true,
-        message: `Berhasil mencetak ${copies} lembar ke ${this.printerName}.`,
+        message: `Berhasil mencetak ${copies} lembar ke ${this.printerName}. Sisa kertas roll: ${this.paperRemaining}.`,
       };
     } catch (err: any) {
       console.error('[Printer] Print job failed:', err);

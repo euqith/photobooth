@@ -127,6 +127,24 @@ app.post('/api/admin/test-print', async (req, res) => {
   }
 });
 
+// Reset Paper Roll Counter Endpoint (Default 330 for HiTi P510S)
+app.post('/api/admin/printer/reset-roll', (req, res) => {
+  const count = parseInt(req.body?.count || '330', 10) || 330;
+  printerService.resetPaperCounter(count);
+  io.emit('admin:printerStatus', printerService.getStatus());
+  res.json({ success: true, message: `Roll kertas berhasil direset ke ${count} lembar.`, printer: printerService.getStatus() });
+});
+
+// Select Active Printer Endpoint
+app.post('/api/admin/printer/select', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ success: false, error: 'Printer name is required' });
+  printerService.setPrinterName(name);
+  settingsManager.updateSettings({ printerName: name });
+  io.emit('admin:printerStatus', printerService.getStatus());
+  res.json({ success: true, printer: printerService.getStatus() });
+});
+
 // Camera Provider Switcher API
 app.post('/api/camera/provider', async (req, res) => {
   try {

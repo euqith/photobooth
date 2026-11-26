@@ -133,6 +133,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [cameraSwitchMessage, setCameraSwitchMessage] = useState<string | null>(null);
   const [isTestingPrint, setIsTestingPrint] = useState(false);
   const [testPrintResult, setTestPrintResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isResettingRoll, setIsResettingRoll] = useState(false);
+  const [resetRollMessage, setResetRollMessage] = useState<string | null>(null);
 
   // Settings State
   const [settings, setSettings] = useState<ServerSettings>(DEFAULT_SETTINGS);
@@ -348,6 +350,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } finally {
       setIsTestingPrint(false);
       setTimeout(() => setTestPrintResult(null), 8000);
+    }
+  };
+
+  const handleResetRoll = async (count = 330) => {
+    setIsResettingRoll(true);
+    setResetRollMessage(null);
+    try {
+      const res = await fetch(getApiUrl('/api/admin/printer/reset-roll'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count }),
+      });
+      const data = await res.json();
+      if (data.success && data.printer) {
+        setPrinterStatus(data.printer);
+        setResetRollMessage(data.message || `Roll kertas direset ke ${count} lembar.`);
+      }
+    } catch (err: any) {
+      setResetRollMessage(`Gagal reset roll: ${err?.message}`);
+    } finally {
+      setIsResettingRoll(false);
+      setTimeout(() => setResetRollMessage(null), 5000);
+    }
+  };
+
+  const handleSelectPrinter = async (name: string) => {
+    try {
+      const res = await fetch(getApiUrl('/api/admin/printer/select'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (data.success && data.printer) {
+        setPrinterStatus(data.printer);
+        setSettings((prev) => ({ ...prev, printerName: name }));
+      }
+    } catch (err) {
+      console.error('Failed to select printer:', err);
     }
   };
 
@@ -2577,17 +2618,108 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     )}
                   </div>
 
-                  {/* List of Detected Physical Printers */}
-                  {printerStatus?.detectedPrinters && printerStatus.detectedPrinters.length > 0 && (
-                    <div className="p-3 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between text-xs">
-                      <span className="text-gray-400">
-                        Printer Terpasang ({printerStatus.detectedPrinters.length}):
-                      </span>
-                      <span className="font-mono text-pink-400 font-bold">
-                        {printerStatus.detectedPrinters.join(', ')}
+                  {/* HiTi P510S Auto-Discovery Banner */}
+                  {printerStatus?.isHiTiP510S ? (
+                    <div className="p-3.5 bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-pink-500/10 border border-pink-500/30 rounded-2xl flex items-center justify-between text-xs animate-fade-in shadow-inner">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 bg-pink-500/20 rounded-lg text-pink-400">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-pink-300">Profil Khusus HiTi P510S Aktif</p>
+                          <p className="text-[11px] text-gray-400">
+                            Plug & Play Siap — Ukuran 4x6 borderless & 2x6 strip photo cutter siap pakai tanpa setting.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 bg-pink-500/20 text-pink-300 border border-pink-500/40 rounded-lg font-mono text-[10px] font-bold">
+                        Plug & Play Ready
                       </span>
                     </div>
+                  ) : null}
+
+                  {/* Sisa Kertas Roll Meter (HiTi P510S Standard: 330 Prints) */}
+                  <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">Sisa Kertas Roll Printer</span>
+                        <span className="text-xs text-pink-400 font-mono font-bold">
+                          {printerStatus?.paperRemaining ?? 330} / {printerStatus?.rollCapacity ?? 330} Lembar
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleResetRoll(330)}
+                        disabled={isResettingRoll}
+                        className="px-3 py-1 bg-[#161F30] hover:bg-pink-600 hover:text-white text-pink-400 border border-gray-700/60 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Reset counter roll kertas baru HiTi P510S ke 330 lembar"
+                      >
+                        <RotateCcw className={`w-3.5 h-3.5 ${isResettingRoll ? 'animate-spin' : ''}`} />
+                        <span>Reset Roll Baru (330 Lembar)</span>
+                      </button>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden border border-gray-800">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          ((printerStatus?.paperRemaining ?? 330) / (printerStatus?.rollCapacity ?? 330)) > 0.3
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                            : ((printerStatus?.paperRemaining ?? 330) / (printerStatus?.rollCapacity ?? 330)) > 0.1
+                            ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+                            : 'bg-gradient-to-r from-rose-500 to-red-400'
+                        }`}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              ((printerStatus?.paperRemaining ?? 330) / (printerStatus?.rollCapacity ?? 330)) * 100
+                            )
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    {resetRollMessage && (
+                      <p className="text-xs text-emerald-400 font-medium animate-fade-in">{resetRollMessage}</p>
+                    )}
+                  </div>
+
+                  {/* List of Detected Physical Printers & Selector */}
+                  {printerStatus?.detectedPrinters && printerStatus.detectedPrinters.length > 0 && (
+                    <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                      <div>
+                        <span className="text-sm font-bold text-white block">Pilihan Perangkat Printer</span>
+                        <span className="text-xs text-gray-400">
+                          Sistem otomatis memprioritaskan HiTi P510S saat dicolokkan ke USB
+                        </span>
+                      </div>
+                      <select
+                        value={printerStatus?.name || settings.printerName}
+                        onChange={(e) => handleSelectPrinter(e.target.value)}
+                        className="px-3 py-2 bg-[#111827] border border-gray-700 rounded-xl text-xs font-mono text-gray-200 focus:outline-none focus:border-pink-500 font-bold"
+                      >
+                        {printerStatus.detectedPrinters.map((p) => (
+                          <option key={p} value={p}>
+                            {p} {/hiti.*p510|p510s/i.test(p) ? '★ (HiTi P510S Auto-Match)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
+
+                  {/* Zero-Config Guide Notice */}
+                  <div className="p-4 bg-[#161F30]/40 border border-gray-800/80 rounded-2xl flex items-start gap-3 text-xs text-gray-400">
+                    <div className="p-2 bg-pink-500/10 rounded-xl text-pink-400 border border-pink-500/20 shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-gray-200">Panduan Plug & Play HiTi P510S (Zero Config):</p>
+                      <p className="leading-relaxed">
+                        Photobooth telah dioptimalkan khusus untuk printer dye-sublimation <strong>HiTi P510S</strong> dengan ukuran kertas standar <strong>4x6 inci (10x15 cm) borderless</strong> dan mode komposit 2-Up. Cukup colokkan kabel USB ke komputer kiosk, sistem akan langsung mengenali dan mencetak tanpa perlu konfigurasi manual tambahan.
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between">
                     <div>
