@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 interface AttractScreenProps {
@@ -7,19 +7,28 @@ interface AttractScreenProps {
 }
 
 export const AttractScreen: React.FC<AttractScreenProps> = ({ onStart, onAdminTap }) => {
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Ignore taps inside the hidden top-left admin hotspot (first 96px x 96px)
+    if (e.clientX < 96 && e.clientY < 96) return;
+    if (isStarting) return;
+    setIsStarting(true);
+    onStart();
+    // Safety reset after 4 seconds in case session was cancelled or failed
+    setTimeout(() => setIsStarting(false), 4000);
+  };
+
   return (
     <div
-      className="relative w-full h-full overflow-hidden bg-black cursor-pointer"
-      onPointerDown={(e) => {
-        // Ignore taps inside the hidden top-left admin hotspot
-        if (e.clientX < 96 && e.clientY < 96) return;
-        onStart();
-      }}
+      className="relative w-full h-full overflow-hidden bg-black cursor-pointer select-none"
+      onClick={handleStart}
     >
       {/* Hidden Operator Hotspot (Tap 5x in top-left to open Admin) */}
       <div
-        className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0"
-        onPointerDown={(e) => {
+        className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0 cursor-pointer"
+        onClick={(e) => {
           e.stopPropagation();
           onAdminTap();
         }}

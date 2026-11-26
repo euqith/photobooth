@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sparkles, Camera, QrCode, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, X } from 'lucide-react';
 
 interface LoadingScreenProps {
   message?: string;
@@ -12,8 +12,21 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   subMessage = 'Sedang membuat kode QRIS resmi dan menghubungkan ke server...',
   onCancel,
 }) => {
+  // Prevent instant accidental touch-through cancellation by delaying cancel button by 4 seconds
+  const [canCancel, setCanCancel] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCanCancel(true);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-40 bg-[#080B11]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in select-none">
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-40 bg-[#080B11]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in select-none"
+    >
       <div className="flex flex-col items-center max-w-md w-full text-center">
         {/* Animated Glowing Ring & Icons */}
         <div className="relative mb-8 flex items-center justify-center">
@@ -39,12 +52,15 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <div className="w-2.5 h-2.5 rounded-full bg-pink-400 animate-pulse" />
         </div>
 
-        {/* Cancel Button if user wants to go back */}
-        {onCancel && (
+        {/* Cancel Button - Only visible after 4s to prevent touch-through from AttractScreen */}
+        {onCancel && canCancel && (
           <button
             type="button"
-            onClick={onCancel}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-gray-700/60 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel();
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-gray-700/60 cursor-pointer animate-fade-in"
           >
             <X className="w-4 h-4" />
             <span>Kembali ke Beranda</span>

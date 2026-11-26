@@ -123,7 +123,20 @@ export class SessionManager {
     await this.cameraManager.stopLiveView();
 
     try {
-      const tx = await this.paymentManager.createTransaction(this.currentSession.id);
+      let tx: any;
+      try {
+        tx = await this.paymentManager.createTransaction(this.currentSession.id);
+      } catch (gatewayErr: any) {
+        console.warn('[SessionManager] Primary gateway error, falling back to Sandbox QRIS:', gatewayErr?.message);
+        const fallbackProvider = this.paymentManager.getProvider('sandbox');
+        const fallbackAmount = this.settingsManager.getSettings().payment.sessionPrice || 50000;
+        tx = await fallbackProvider.createQris(`FALLBACK-${this.currentSession.id}`, fallbackAmount, this.currentSession.id);
+      }
+
+      if (!tx.expiresAt) {
+        tx.expiresAt = Date.now() + 5 * 60 * 1000;
+      }
+
       this.currentSession.payment = tx;
       this.currentSession.state = 'AWAITING_PAYMENT';
       this.broadcastState();

@@ -950,10 +950,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Total Omzet Hari Ini
                     </span>
                     <div className="text-2xl font-display font-black text-emerald-400 font-mono">
-                      Rp {(transactionStats.totalGrossAmount ?? 0).toLocaleString('id-ID')}
+                      Rp {(transactionStats?.totalGrossAmount ?? 0).toLocaleString('id-ID')}
                     </div>
                     <span className="text-[11px] text-gray-400 mt-2 block">
-                      dari {(transactionStats.paidCount ?? 0)} sesi berbayar
+                      dari {(transactionStats?.paidCount ?? 0)} sesi berbayar
                     </span>
                   </div>
 
@@ -963,7 +963,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Transaksi Selesai
                     </span>
                     <div className="text-2xl font-display font-black text-white font-mono">
-                      {(transactionStats.paidCount ?? 0)} Sesi
+                      {(transactionStats?.paidCount ?? 0)} Sesi
                     </div>
                     <span className="text-[11px] text-emerald-400 mt-2 block flex items-center gap-1 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Pembayaran Terverifikasi
@@ -976,7 +976,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Voucher / Kasir Bypass
                     </span>
                     <div className="text-2xl font-display font-black text-purple-400 font-mono">
-                      {(transactionStats.voucherCount ?? 0)} Sesi
+                      {(transactionStats?.voucherCount ?? 0)} Sesi
                     </div>
                     <span className="text-[11px] text-gray-400 mt-2 block">
                       Kode promo / tamu VIP
@@ -989,10 +989,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Gateway Aktif
                     </span>
                     <div className="text-xl font-display font-black text-rose-400 capitalize">
-                      {settings.payment.mode === 'free' ? 'Mode Gratis' : `${settings.payment.provider} QRIS`}
+                      {settings?.payment?.mode === 'free' ? 'Mode Gratis' : `${settings?.payment?.provider || 'midtrans'} QRIS`}
                     </div>
                     <span className="text-[11px] text-gray-400 mt-2 block font-mono">
-                      Rp {(settings.payment.sessionPrice ?? 0).toLocaleString('id-ID')} / sesi
+                      Rp {(settings?.payment?.sessionPrice ?? 50000).toLocaleString('id-ID')} / sesi
                     </span>
                   </div>
                 </div>
@@ -1534,7 +1534,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div>
                               <span className="text-gray-400 block font-semibold">Nominal Sesi:</span>
                               <span className="font-mono text-emerald-400 font-bold">
-                                Rp {(testMidtransResult.amount ?? settings.payment.sessionPrice).toLocaleString('id-ID')}
+                                Rp {(testMidtransResult?.amount ?? settings?.payment?.sessionPrice ?? 50000).toLocaleString('id-ID')}
                               </span>
                             </div>
 
@@ -2272,10 +2272,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                             <p className="text-[11px] text-gray-400 font-mono">
                               Waktu Pengambilan:{' '}
-                              {new Date(selectedSession.createdAt).toLocaleString('id-ID', {
-                                dateStyle: 'full',
-                                timeStyle: 'short',
-                              })}
+                              {selectedSession?.createdAt
+                                ? new Date(selectedSession.createdAt).toLocaleString('id-ID', {
+                                    dateStyle: 'full',
+                                    timeStyle: 'short',
+                                  })
+                                : '-'}
                             </p>
                           </div>
                         </div>

@@ -35,20 +35,33 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
   const [copiedOrderId, setCopiedOrderId] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
 
+  const onCancelRef = React.useRef(onCancel);
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+  }, [onCancel]);
+
   useEffect(() => {
     if (!transaction) return;
-    const calculateTime = () => {
-      const remaining = Math.max(0, Math.floor((transaction.expiresAt - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      if (remaining === 0) {
-        onCancel();
-      }
-    };
+    const expiresAt = transaction.expiresAt && transaction.expiresAt > Date.now()
+      ? transaction.expiresAt
+      : Date.now() + 5 * 60 * 1000;
 
-    calculateTime();
-    const timer = setInterval(calculateTime, 1000);
+    const initialRemaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    setTimeLeft(initialRemaining);
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onCancelRef.current();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
     return () => clearInterval(timer);
-  }, [transaction, onCancel]);
+  }, [transaction?.orderId]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -276,24 +289,32 @@ export const PaymentQrisScreen: React.FC<PaymentQrisScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const toCopy = transaction.qrCodeUrl || transaction.qrString || '';
+                        const toCopy = transaction.qrCodeUrl || '';
+                        if (!toCopy) {
+                          alert('URL gambar QR belum tersedia.');
+                          return;
+                        }
                         navigator.clipboard.writeText(toCopy);
-                        alert('✅ URL QRIS disalin! Tempel di kotak "QR Code Image Url" pada Simulator.');
+                        alert('✅ URL Gambar QRIS disalin!\nTempel di kotak "QR Code Image Url" pada Midtrans Simulator.');
                       }}
-                      className="flex-1 py-1.5 px-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      className="flex-1 py-1.5 px-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      title="Salin URL gambar QR untuk input di Midtrans Simulator"
                     >
                       <Copy className="w-3 h-3 text-pink-400" />
-                      <span>Salin URL QR</span>
+                      <span>Salin URL Simulator</span>
                     </button>
                     <a
                       href="https://simulator.sandbox.midtrans.com/v2/qris/index"
                       target="_blank"
                       rel="noreferrer"
-                      className="py-1.5 px-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1"
+                      className="py-1.5 px-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <span>Simulator ↗</span>
                     </a>
                   </div>
+                  <p className="text-[10px] text-gray-400 leading-tight">
+                    💡 Catatan: Website simulator Midtrans meminta <b>QR Code Image Url</b> (gunakan tombol di atas). Atau klik tombol hijau untuk bayar instan tanpa buka simulator.
+                  </p>
                 </div>
               )}
             </div>
