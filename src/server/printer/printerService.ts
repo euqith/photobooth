@@ -1,4 +1,4 @@
-import { execFile, execSync } from 'child_process';
+import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { PrinterStatus } from '../../shared/types';
@@ -9,10 +9,14 @@ export class PrinterService {
   private paperRemaining = 300; // default roll counter
   private dryRun = true;
   private printerName = 'Default_Photo_Printer';
+  private lastDetectTime = 0;
+  private cachedHardwareConnected = false;
+  private cachedPrinters: string[] = [];
 
   private constructor() {
     this.dryRun = process.env.PRINTER_DRY_RUN !== 'false';
     this.printerName = process.env.PRINTER_NAME || 'Default_Photo_Printer';
+    this.detectHardwarePrinters();
   }
 
   public static getInstance(): PrinterService {
@@ -22,10 +26,86 @@ export class PrinterService {
     return PrinterService.instance;
   }
 
-  public getStatus(): PrinterStatus {
+  public detectHardwarePrinters(): { connected: boolean; printers: string[]; activeName: string } {
+    const now = Date.now();
+    // Cache for 3 seconds to avoid subprocess spamming
+    if (now - this.lastDetectTime < 3000 && this.lastDetectTime > 0) {
+      return {
+        connected: this.cachedHardwareConnected,
+        printers: this.cachedPrinters,
+        activeName: this.printerName,
+      };
+    }
+
+    this.lastDetectTime = now;
+    const detected: string[] = [];
+
+    try {
+      if (process.platform === 'darwin') {
+        try {
+          const out = execSync('lpstat -e 2>/dev/null', { timeout: 2000 }).toString();
+          const lines = out.split('\n').map((l) => l.trim()).filter(Boolean);
+          detected.push(...lines);
+        } catch {
+          // Fallback to system_profiler
+          try {
+            const profilerOut = execSync('system_profiler SPPrintersDataType 2>/dev/null', { timeout: 2500 }).toString();
+            if (!profilerOut.includes('The printers list is empty')) {
+              const matches = profilerOut.match(/^ {4}([A-Za-z0-9_.-]+):$/gm);
+              if (matches) {
+                detected.push(...matches.map((m) => m.trim().replace(':', '')));
+              }
+            }
+          } catch {}
+        }
+      } else if (process.platform === 'win32') {
+        try {
+          const out = execSync(
+            'powershell -NoProfile -Command "Get-CimInstance Win32_Printer | Select-Object -ExpandProperty Name"',
+            { timeout: 3000 }
+          ).toString();
+          const lines = out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          detected.push(...lines);
+        } catch {}
+      } else {
+        try {
+          const out = execSync('lpstat -e 2>/dev/null', { timeout: 2000 }).toString();
+          const lines = out.split('\n').map((l) => l.trim()).filter(Boolean);
+          detected.push(...lines);
+        } catch {}
+      }
+    } catch {}
+
+    this.cachedPrinters = detected;
+    this.cachedHardwareConnected = detected.length > 0;
+
+    if (detected.length > 0) {
+      if (detected.includes(this.printerName)) {
+        // Keeps selected printerName
+      } else if (this.printerName === 'Default_Photo_Printer' || !this.printerName) {
+        this.printerName = detected[0];
+      }
+    }
+
     return {
-      connected: true,
-      name: this.printerName,
+      connected: this.cachedHardwareConnected,
+      printers: this.cachedPrinters,
+      activeName: this.printerName,
+    };
+  }
+
+  public getStatus(): PrinterStatus {
+    const hw = this.detectHardwarePrinters();
+    const isActuallyConnected = this.dryRun ? true : hw.connected;
+
+    return {
+      connected: isActuallyConnected,
+      hardwareConnected: hw.connected,
+      name: hw.connected
+        ? hw.activeName
+        : this.dryRun
+        ? `${this.printerName} (Simulasi)`
+        : 'Tidak Ada Printer Terhubung',
       isPrinting: this.isPrinting,
       paperRemaining: this.paperRemaining,
       mode: this.dryRun
@@ -33,6 +113,12 @@ export class PrinterService {
         : process.platform === 'win32'
         ? 'windows-spooler'
         : 'cups',
+      detectedPrinters: hw.printers,
+      message: hw.connected
+        ? `Printer ${hw.activeName} terhubung`
+        : this.dryRun
+        ? 'Mode simulasi Dry-Run aktif (tanpa printer fisik)'
+        : 'Tidak ada printer fisik terdeteksi di sistem OS',
     };
   }
 
@@ -57,6 +143,17 @@ export class PrinterService {
       throw new Error('Printer is currently busy with another print job.');
     }
 
+    if (!this.dryRun) {
+      const hw = this.detectHardwarePrinters();
+      if (!hw.connected) {
+        return {
+          success: false,
+          message:
+            'Gagal mencetak: Tidak ada printer fisik yang terhubung ke kiosk. Pastikan kabel printer USB terhubung atau aktifkan Mode Dry-Run.',
+        };
+      }
+    }
+
     this.isPrinting = true;
     console.log(`[Printer] Received print job for ${filePath} (${copies} copies, mode: ${this.dryRun ? 'DRY-RUN' : 'HARDWARE'})`);
 
@@ -67,7 +164,7 @@ export class PrinterService {
         this.paperRemaining = Math.max(0, this.paperRemaining - copies);
         return {
           success: true,
-          message: `Simulated print of ${copies} copies completed successfully (Dry-Run Mode).`,
+          message: `Simulasi cetak ${copies} lembar berhasil diselesaikan (Mode Dry-Run).`,
         };
       }
 
@@ -94,7 +191,7 @@ export class PrinterService {
       this.paperRemaining = Math.max(0, this.paperRemaining - copies);
       return {
         success: true,
-        message: `Printed ${copies} copies to ${this.printerName}.`,
+        message: `Berhasil mencetak ${copies} lembar ke ${this.printerName}.`,
       };
     } catch (err: any) {
       console.error('[Printer] Print job failed:', err);

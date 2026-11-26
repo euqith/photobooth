@@ -131,6 +131,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [testShotResult, setTestShotResult] = useState<string | null>(null);
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
   const [cameraSwitchMessage, setCameraSwitchMessage] = useState<string | null>(null);
+  const [isTestingPrint, setIsTestingPrint] = useState(false);
+  const [testPrintResult, setTestPrintResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Settings State
   const [settings, setSettings] = useState<ServerSettings>(DEFAULT_SETTINGS);
@@ -328,6 +330,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else {
       alert('PIN Salah! Masukkan PIN operator yang benar.');
       setPin('');
+    }
+  };
+
+  const handleTestPrint = async () => {
+    setIsTestingPrint(true);
+    setTestPrintResult(null);
+    try {
+      onTestPrint(); // socket trigger
+      const res = await fetch(getApiUrl('/api/admin/test-print'), {
+        method: 'POST',
+      });
+      const data = await res.json();
+      setTestPrintResult(data);
+    } catch (err: any) {
+      setTestPrintResult({ success: false, message: `Error: ${err?.message || 'Gagal koneksi'}` });
+    } finally {
+      setIsTestingPrint(false);
+      setTimeout(() => setTestPrintResult(null), 8000);
     }
   };
 
@@ -796,11 +816,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
                   settings.dryRunPrinter
                     ? 'bg-amber-950/40 border-amber-500/40 text-amber-400'
-                    : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
+                    : (printerStatus?.hardwareConnected ?? false)
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
+                    : 'bg-rose-950/40 border-rose-500/40 text-rose-400'
                 }`}
               >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    settings.dryRunPrinter
+                      ? 'bg-amber-400'
+                      : (printerStatus?.hardwareConnected ?? false)
+                      ? 'bg-emerald-400 animate-pulse'
+                      : 'bg-rose-400'
+                  }`}
+                />
                 <Printer className="w-3.5 h-3.5" />
-                <span>{settings.dryRunPrinter ? 'Printer: Dry Run' : 'Printer: Siap'}</span>
+                <span>
+                  {settings.dryRunPrinter
+                    ? 'Printer: Dry Run'
+                    : (printerStatus?.hardwareConnected ?? false)
+                    ? `Printer: ${printerStatus?.name || 'Online'}`
+                    : 'Printer: OFFLINE'}
+                </span>
               </div>
 
               {/* Theme Switcher Toggle (Dark / Day Mode) */}
@@ -2506,17 +2543,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-white">Printer Photo Kiosk</h3>
-                        <p className="text-xs text-gray-400 font-mono">
-                          {printerStatus?.name || 'Default_Photo_Printer'}
-                        </p>
+                        {settings.dryRunPrinter ? (
+                          <p className="text-xs text-amber-400 font-medium mt-0.5">
+                            Virtual Printer Spooler Simulator (Dry-Run Mode)
+                          </p>
+                        ) : (printerStatus?.hardwareConnected ?? false) ? (
+                          <p className="text-xs text-emerald-400 font-mono mt-0.5">
+                            {printerStatus?.name || 'Default_Photo_Printer'}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-rose-400 font-medium mt-0.5">
+                            Tidak ada printer fisik terdeteksi di sistem OS (macOS/Windows)
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span>ONLINE</span>
-                    </span>
+                    {settings.dryRunPrinter ? (
+                      <span className="px-3 py-1 rounded-xl text-xs font-bold bg-amber-950/60 border border-amber-500/40 text-amber-400 flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-amber-400" />
+                        <span>SIMULASI (DRY-RUN)</span>
+                      </span>
+                    ) : (printerStatus?.hardwareConnected ?? false) ? (
+                      <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>TERHUBUNG (ONLINE)</span>
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-xl text-xs font-bold bg-rose-950/60 border border-rose-500/40 text-rose-400 flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-rose-400" />
+                        <span>TERPUTUS (OFFLINE)</span>
+                      </span>
+                    )}
                   </div>
+
+                  {/* List of Detected Physical Printers */}
+                  {printerStatus?.detectedPrinters && printerStatus.detectedPrinters.length > 0 && (
+                    <div className="p-3 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between text-xs">
+                      <span className="text-gray-400">
+                        Printer Terpasang ({printerStatus.detectedPrinters.length}):
+                      </span>
+                      <span className="font-mono text-pink-400 font-bold">
+                        {printerStatus.detectedPrinters.join(', ')}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="p-4 bg-[#161F30]/70 border border-gray-800 rounded-2xl flex items-center justify-between">
                     <div>
@@ -2549,15 +2620,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </button>
                   </div>
 
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={onTestPrint}
-                      className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700/80 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-pink-400" />
-                      <span>Kirim Test Print Page</span>
-                    </button>
+                  <div className="pt-2 flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleTestPrint}
+                        disabled={isTestingPrint}
+                        className="px-4 py-2 bg-[#161F30] hover:bg-gray-800 text-gray-200 border border-gray-700/80 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-pink-400" />
+                        <span>{isTestingPrint ? 'Mengirim Test Print...' : 'Kirim Test Print Page'}</span>
+                      </button>
+                    </div>
+
+                    {testPrintResult && (
+                      <div
+                        className={`p-3 rounded-xl border text-xs font-medium flex items-center gap-2 animate-fade-in ${
+                          testPrintResult.success
+                            ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                            : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                        }`}
+                      >
+                        <span>{testPrintResult.message}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

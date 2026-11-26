@@ -90,6 +90,9 @@ export interface PrinterStatus {
   isPrinting: boolean;
   paperRemaining: number;
   mode: 'dry-run' | 'cups' | 'windows-spooler';
+  hardwareConnected?: boolean;
+  detectedPrinters?: string[];
+  message?: string;
 }
 
 export interface PhotoHistorySession {

@@ -61,6 +61,13 @@ const printerService = PrinterService.getInstance();
 const paymentManager = PaymentManager.getInstance();
 const settingsManager = SettingsManager.getInstance();
 
+// Initialize printer service with saved settings
+const initialSettings = settingsManager.getSettings();
+printerService.setDryRun(initialSettings.dryRunPrinter);
+if (initialSettings.printerName) {
+  printerService.setPrinterName(initialSettings.printerName);
+}
+
 // REST APIs
 app.get('/api/health', async (req, res) => {
   const camHealth = await cameraManager.getHealth();
@@ -99,7 +106,25 @@ app.get('/api/admin/settings', (req, res) => {
 
 app.post('/api/admin/settings', (req, res) => {
   const updated = settingsManager.updateSettings(req.body);
-  res.json({ success: true, settings: updated });
+  if (typeof updated.dryRunPrinter === 'boolean') {
+    printerService.setDryRun(updated.dryRunPrinter);
+  }
+  if (updated.printerName) {
+    printerService.setPrinterName(updated.printerName);
+  }
+  io.emit('admin:printerStatus', printerService.getStatus());
+  res.json({ success: true, settings: updated, printer: printerService.getStatus() });
+});
+
+// Admin Test Print Endpoint
+app.post('/api/admin/test-print', async (req, res) => {
+  try {
+    const samplePrint = path.resolve(__dirname, '../../public/templates/1.png');
+    const result = await printerService.print(samplePrint, 1);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Gagal mengirim test print' });
+  }
 });
 
 // Camera Provider Switcher API
@@ -669,7 +694,8 @@ io.on('connection', (socket) => {
 
   socket.on('admin:setPrinterDryRun', (dryRun: boolean) => {
     printerService.setDryRun(dryRun);
-    socket.emit('admin:printerStatus', printerService.getStatus());
+    settingsManager.updateSettings({ dryRunPrinter: dryRun });
+    io.emit('admin:printerStatus', printerService.getStatus());
   });
 
   socket.on('disconnect', () => {
