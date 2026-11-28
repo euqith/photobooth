@@ -21,6 +21,7 @@ export class SessionManager {
   private countdownVal = 5;
 
   private sessionsDir = path.resolve(__dirname, '../../output/sessions');
+  private isStartingSession = false;
 
   constructor(io: SocketIOServer) {
     this.io = io;
@@ -43,42 +44,57 @@ export class SessionManager {
     });
   }
 
-  public async startNewSession(): Promise<PhotoSession> {
-    const id = Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6);
-    this.currentSession = {
-      id,
-      createdAt: Date.now(),
-      templateId: '1',
-      poseCount: 3,
-      currentPose: 0,
-      capturedPhotos: [],
-      retakeCountForCurrentPose: 0,
-      filter: 'original',
-      printCopies: 1,
-      state: 'SELECT_TEMPLATE',
-    };
-    this.updateActiveSlot();
-
-    // Ensure session directory exists
-    const sessionDir = path.join(this.sessionsDir, id);
-    fs.mkdirSync(sessionDir, { recursive: true });
-
-    const paymentSettings = this.settingsManager.getSettings().payment;
-    // Commercial Flow: QRIS Payment BEFORE template selection
-    if (paymentSettings.mode === 'paid') {
-      this.io.emit('session:loading', {
-        active: true,
-        message: 'Menyiapkan Kode QRIS Pembayaran...',
-        subMessage: 'Menghubungkan ke gateway pembayaran dan men-generate QRIS...',
-      });
-      await this.requestPayment();
-      this.io.emit('session:loading', { active: false });
+  public async startNewSession(): Promise<PhotoSession | null> {
+    if (this.isStartingSession) {
+      console.warn('[SessionManager] startNewSession ignored: session already starting');
+      return this.currentSession;
+    }
+    if (this.currentSession && this.currentSession.state !== 'IDLE') {
+      console.warn('[SessionManager] startNewSession: active session already exists in state', this.currentSession.state);
+      this.broadcastState();
       return this.currentSession;
     }
 
-    // Free Mode: Directly open template selection
-    this.broadcastState();
-    return this.currentSession;
+    this.isStartingSession = true;
+    try {
+      const id = Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6);
+      this.currentSession = {
+        id,
+        createdAt: Date.now(),
+        templateId: '1',
+        poseCount: 3,
+        currentPose: 0,
+        capturedPhotos: [],
+        retakeCountForCurrentPose: 0,
+        filter: 'original',
+        printCopies: 1,
+        state: 'SELECT_TEMPLATE',
+      };
+      this.updateActiveSlot();
+
+      // Ensure session directory exists
+      const sessionDir = path.join(this.sessionsDir, id);
+      fs.mkdirSync(sessionDir, { recursive: true });
+
+      const paymentSettings = this.settingsManager.getSettings().payment;
+      // Commercial Flow: QRIS Payment BEFORE template selection
+      if (paymentSettings.mode === 'paid') {
+        this.io.emit('session:loading', {
+          active: true,
+          message: 'Menyiapkan Kode QRIS Pembayaran...',
+          subMessage: 'Menghubungkan ke gateway pembayaran dan men-generate QRIS...',
+        });
+        await this.requestPayment();
+        this.io.emit('session:loading', { active: false });
+        return this.currentSession;
+      }
+
+      // Free Mode: Directly open template selection
+      this.broadcastState();
+      return this.currentSession;
+    } finally {
+      this.isStartingSession = false;
+    }
   }
 
   private updateActiveSlot(): void {
@@ -119,8 +135,8 @@ export class SessionManager {
   public async requestPayment(): Promise<void> {
     if (!this.currentSession) return;
 
-    // Strict Thermal Safety: Force EVF OFF while waiting for payment
-    await this.cameraManager.stopLiveView();
+    // Ensure camera LiveView is safely drained asynchronously without blocking QRIS generation
+    this.cameraManager.stopLiveView().catch(() => {});
 
     try {
       let tx: any;
@@ -128,9 +144,8 @@ export class SessionManager {
         tx = await this.paymentManager.createTransaction(this.currentSession.id);
       } catch (gatewayErr: any) {
         console.warn('[SessionManager] Primary gateway error, falling back to Sandbox QRIS:', gatewayErr?.message);
-        const fallbackProvider = this.paymentManager.getProvider('sandbox');
         const fallbackAmount = this.settingsManager.getSettings().payment.sessionPrice || 50000;
-        tx = await fallbackProvider.createQris(`FALLBACK-${this.currentSession.id}`, fallbackAmount, this.currentSession.id);
+        tx = await this.paymentManager.createFallbackSandboxTransaction(this.currentSession.id, fallbackAmount);
       }
 
       if (!tx.expiresAt) {
@@ -149,7 +164,15 @@ export class SessionManager {
         },
         () => {
           if (this.currentSession && this.currentSession.state === 'AWAITING_PAYMENT') {
-            this.resetToIdle();
+            const exp = this.currentSession.payment?.expiresAt;
+            // Guard: Only reset to IDLE if the QRIS has genuinely expired or was explicitly cancelled
+            if (exp && Date.now() >= exp) {
+              console.warn('[SessionManager] QRIS transaction expired, resetting session to IDLE');
+              this.resetToIdle();
+            } else if (this.currentSession.payment?.status === 'CANCELLED') {
+              console.warn('[SessionManager] QRIS transaction cancelled, resetting session to IDLE');
+              this.resetToIdle();
+            }
           }
         }
       );

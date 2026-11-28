@@ -119,6 +119,7 @@ export const App: React.FC = () => {
   };
 
   const startSession = () => {
+    if (isStartingSession || state !== 'IDLE') return;
     setIsStartingSession(true);
     socket?.emit('session:start');
   };
@@ -187,11 +188,6 @@ export const App: React.FC = () => {
         <LoadingScreen
           message={loadingInfo.message || 'Menyiapkan Sesi Photobooth...'}
           subMessage={loadingInfo.subMessage || 'Sedang menghubungkan ke gateway dan membuat kode QRIS resmi...'}
-          onCancel={() => {
-            setIsStartingSession(false);
-            setLoadingInfo({ active: false });
-            endSession();
-          }}
         />
       )}
 

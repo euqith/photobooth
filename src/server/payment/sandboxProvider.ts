@@ -33,7 +33,7 @@ export class SandboxPaymentProvider implements IPaymentProvider {
 
   async checkStatus(orderId: string): Promise<TransactionStatus> {
     const tx = this.transactions.get(orderId);
-    if (!tx) return 'EXPIRED';
+    if (!tx) return 'PENDING';
     if (Date.now() > tx.expiresAt && tx.status === 'PENDING') {
       tx.status = 'EXPIRED';
     }

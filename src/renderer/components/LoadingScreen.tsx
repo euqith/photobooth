@@ -25,6 +25,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   return (
     <div
       onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
       className="fixed inset-0 z-40 bg-[#080B11]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in select-none"
     >
       <div className="flex flex-col items-center max-w-md w-full text-center">

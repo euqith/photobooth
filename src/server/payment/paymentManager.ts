@@ -73,6 +73,21 @@ export class PaymentManager {
     return tx;
   }
 
+  public async createFallbackSandboxTransaction(
+    sessionId: string,
+    amount?: number
+  ): Promise<QrisTransaction> {
+    this.stopPolling();
+    const settings = SettingsManager.getInstance().getSettings().payment;
+    const finalAmount = amount || settings.sessionPrice;
+    const orderId = `PB-SB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    const tx = await this.sandboxProvider.createQris(orderId, finalAmount, sessionId);
+    this.currentTransaction = tx;
+    this.appendLedger(tx);
+    return tx;
+  }
+
   public startStatusPolling(
     orderId: string,
     onSuccess: (tx: QrisTransaction) => void,
@@ -89,7 +104,8 @@ export class PaymentManager {
 
     this.activePoller = setInterval(async () => {
       try {
-        const provider = this.getProvider(settings.provider);
+        const providerType = this.currentTransaction?.provider || settings.provider;
+        const provider = this.getProvider(providerType);
         const status = await provider.checkStatus(orderId);
 
         if (status === 'PAID') {

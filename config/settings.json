@@ -54,6 +54,11 @@
         "type": "percentage",
         "value": 100,
         "label": "Kupon Spesial"
+      },
+      {
+        "code": "DISK25",
+        "type": "fixed",
+        "value": 2500
       }
     ],
     "activeVouchers": [
@@ -61,7 +66,8 @@
       "CASH01",
       "DISKON50",
       "POTONGAN20K",
-      "CHV11"
+      "CHV11",
+      "DISK25"
     ]
   }
 }

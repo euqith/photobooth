@@ -131,6 +131,11 @@ export class MacGphotoProvider implements ICameraProvider {
   }
 
   async stopLiveView(dropMirror = true): Promise<void> {
+    // If LiveView was never active and process doesn't exist, exit immediately (prevents USB freeze on first run)
+    if (!this.isEvfActive && !this.evfProcess && !this.isDroppingMirror) {
+      return;
+    }
+
     this.isEvfActive = false;
     if (this.evfProcess) {
       const proc = this.evfProcess;
